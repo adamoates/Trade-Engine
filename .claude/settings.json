@@ -1,0 +1,83 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pytest*)",
+      "Bash(python -m pytest*)",
+      "Bash(pip install*)",
+      "Bash(poetry run*)",
+      "Bash(python*)",
+      "Bash(git commit*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(docker*)",
+      "Bash(ls*)",
+      "Bash(ping*)",
+      "Read(**/*.py)",
+      "Read(**/*.md)",
+      "Read(**/*.toml)",
+      "Read(**/*.json)",
+      "Read(**/*.txt)",
+      "Read(**/*.yaml)",
+      "Read(**/*.yml)",
+      "Read(/Users/adamoates/Documents/trader/*.md)",
+      "Write(engine/**/*.py)",
+      "Write(api/**/*.py)",
+      "Write(scanner/**/*.py)",
+      "Write(tests/**/*.py)",
+      "Write(docs/**/*.md)",
+      "Write(scripts/**/*.py)",
+      "Write(config/**/*.json)",
+      "Write(config/**/*.yaml)"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Read(secrets/**)",
+      "Read(.venv/**)",
+      "Read(venv/**)",
+      "Read(__pycache__/**)",
+      "Read(*.pyc)",
+      "Read(.pytest_cache/**)",
+      "Read(dist/**)",
+      "Read(build/**)",
+      "Read(*.egg-info/**)",
+      "Read(node_modules/**)",
+      "Read(logs/**/*.log)",
+      "Write(CLAUDE.md)",
+      "Write(ROADMAP.md)",
+      "Write(.env*)",
+      "Write(secrets/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write(*.py)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Python file modified: $file - Remember to test risk-critical code!'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write(**/risk*.py)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️  RISK MANAGER CODE MODIFIED: $file - THIS REQUIRES COMPREHENSIVE TESTING!'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write(**/executor*.py)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️  ORDER EXECUTOR MODIFIED: $file - TEST WITH TESTNET BEFORE LIVE!'"
+          }
+        ]
+      }
+    ]
+  }
+}
