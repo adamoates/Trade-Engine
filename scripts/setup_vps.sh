@@ -146,9 +146,36 @@ install_tools() {
         htop \
         net-tools \
         ufw \
-        jq
+        jq \
+        fail2ban
 
     log_info "Tools installed ✅"
+}
+
+# Step 5b: Configure fail2ban
+configure_fail2ban() {
+    log_info "Configuring fail2ban for SSH protection..."
+
+    # Enable and start fail2ban
+    systemctl enable fail2ban
+    systemctl start fail2ban
+
+    # Create SSH jail configuration
+    cat > /etc/fail2ban/jail.local << 'EOF'
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 3600
+findtime = 600
+EOF
+
+    # Restart fail2ban to apply config
+    systemctl restart fail2ban
+
+    log_info "Fail2ban configured ✅ (3 attempts = 1 hour ban)"
 }
 
 # Step 6: Configure firewall
@@ -311,6 +338,7 @@ main() {
     install_python
     install_docker
     install_tools
+    configure_fail2ban
     configure_firewall
     test_latency
     create_project_dir
