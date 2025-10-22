@@ -40,7 +40,7 @@ class L2DataRecorder:
         self.symbol = symbol
         self.duration_hours = duration_hours
         self.depth = depth
-        self.exchange = ccxt.binance({
+        self.exchange = ccxt.binanceus({
             'enableRateLimit': True,
             'options': {'defaultType': 'future'}
         })
