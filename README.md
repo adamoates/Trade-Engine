@@ -6,13 +6,20 @@ Medium-frequency cryptocurrency trading system using Level 2 order book imbalanc
 
 **Phase**: Phase 0 - Infrastructure Setup (Weeks 1-2)
 **Week**: Week 1 of 24
-**Focus**: VPS provisioning, latency testing, 24h L2 data recording
+**Focus**: ✅ VPS provisioned, 🔄 Recording 24h L2 data
 
 **Current Tech Stack** (Phase 0):
 - Python 3.11+
 - ccxt (exchange connectivity)
 - pandas (data analysis)
-- Binance Futures Testnet
+- Binance.US (spot market - BTC/USD)
+
+**Infrastructure**:
+- VPS: Linode (173.255.230.154)
+- Latency: 1.5ms to Binance API ✅
+- Recording: BTC/USD L2 order book (5 levels, 1/sec)
+- Started: 2025-10-22 11:08 UTC
+- Expected completion: 2025-10-23 11:08 UTC
 
 **Future Tech Stack** (Phase 2+):
 - asyncio, websockets (Phase 2)
