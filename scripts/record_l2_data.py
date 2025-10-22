@@ -41,8 +41,8 @@ class L2DataRecorder:
         self.duration_hours = duration_hours
         self.depth = depth
         self.exchange = ccxt.binanceus({
-            'enableRateLimit': True,
-            'options': {'defaultType': 'future'}
+            'enableRateLimit': True
+            # Binance.US only has spot markets, no futures
         })
 
         # Create data directory
