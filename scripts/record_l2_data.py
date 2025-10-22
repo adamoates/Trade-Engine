@@ -147,10 +147,11 @@ class L2DataRecorder:
                     # Log progress every 100 snapshots
                     if snapshots_recorded % 100 == 0:
                         elapsed = datetime.now() - start_time
+                        ratio_str = f"{imbalance['ratio']:.3f}" if imbalance['ratio'] is not None else 'N/A'
                         logger.info(
                             f"Recorded {snapshots_recorded} snapshots | "
                             f"Elapsed: {elapsed} | "
-                            f"Last ratio: {imbalance['ratio']:.3f if imbalance['ratio'] else 'N/A'}"
+                            f"Last ratio: {ratio_str}"
                         )
                 else:
                     errors += 1
