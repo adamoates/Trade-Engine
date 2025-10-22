@@ -11,7 +11,7 @@
 #   - NO frontend libraries (not needed until Phase 4)
 
 # Exchange connectivity
-ccxt==4.2.0
+ccxt==4.3.98  # Latest stable version (4.2.0 doesn't exist, skipped from 4.1.100 to 4.2.1)
 
 # Data processing
 pandas==2.1.0
