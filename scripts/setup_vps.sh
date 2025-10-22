@@ -279,8 +279,14 @@ secure_ssh() {
     # Disable password authentication (key-only)
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
 
-    # Restart SSH service
-    systemctl restart sshd
+    # Restart SSH service (handle different service names)
+    if systemctl is-active --quiet sshd; then
+        systemctl restart sshd
+    elif systemctl is-active --quiet ssh; then
+        systemctl restart ssh
+    else
+        log_warn "Could not restart SSH service - please restart manually"
+    fi
 
     log_info "SSH secured (root login disabled, key-only auth) ✅"
     log_warn "Make sure you can SSH as ${MFT_USER} before logging out!"
