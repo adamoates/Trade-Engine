@@ -338,7 +338,7 @@ class L2DataValidator:
         # Save report to JSON
         report_file = self.data_file.parent / f"{self.data_file.stem}_validation.json"
         with open(report_file, 'w') as f:
-            json.dumps(report, indent=2, default=str)
+            f.write(json.dumps(report, indent=2, default=str))
 
         logger.info(f"Validation report saved: {report_file}")
 
