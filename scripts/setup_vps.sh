@@ -215,7 +215,7 @@ install_python_packages() {
 
     # Install Phase 0 requirements
     sudo -u ${MFT_USER} ${PROJECT_DIR}/.venv/bin/pip install \
-        ccxt==4.3.98 \
+        "ccxt>=4.5.0" \
         pandas==2.1.0 \
         python-dotenv==1.0.0 \
         loguru==0.7.2 \
