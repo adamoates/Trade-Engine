@@ -16,7 +16,8 @@ docs/
 │   ├── development-workflow.md     # Daily development practices
 │   ├── github-actions-guide.md     # Complete GitHub Actions reference
 │   ├── pipeline-one-liners.md      # Quick copy-paste commands
-│   └── project-setup-checklist.md  # Environment setup checklist
+│   ├── project-setup-checklist.md  # Environment setup checklist
+│   └── python-tool-structure.md    # Python packaging and tool design
 ```
 
 ## Quick Start
@@ -106,6 +107,14 @@ Complete environment setup from scratch
 - Local development environment
 - VPS and exchange setup
 - First feature verification
+
+### 🐍 **python-tool-structure.md**
+Understanding Python tool structure and package design
+- Current architecture analysis (script-based tools)
+- Python tool structure patterns (script vs library vs framework)
+- When to refactor to library + CLI
+- Industry examples and best practices
+- Proposed evolution path for MFT project
 
 ### 🔧 **development-workflow.md**
 Daily development practices and workflows
