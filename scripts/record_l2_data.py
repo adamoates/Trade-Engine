@@ -28,7 +28,7 @@ from loguru import logger
 class L2DataRecorder:
     """Records Level 2 order book data from Binance Futures"""
 
-    def __init__(self, symbol: str, duration_hours: int = 24, depth: int = 5):
+    def __init__(self, symbol: str, duration_hours: int = 24, depth: int = 5, resume: bool = True):
         """
         Initialize the L2 data recorder.
 
@@ -36,6 +36,7 @@ class L2DataRecorder:
             symbol: Trading pair (e.g., 'BTC/USDT')
             duration_hours: How many hours to record
             depth: Order book depth to capture (default 5 levels)
+            resume: If True, resume writing to existing file from today (default: True)
         """
         self.symbol = symbol
         self.duration_hours = duration_hours
@@ -49,14 +50,29 @@ class L2DataRecorder:
         self.data_dir = Path('data/l2_snapshots')
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Generate filename with timestamp
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.output_file = self.data_dir / f'l2_{symbol.replace("/", "")}_{timestamp}.jsonl'
+        # Generate filename with DATE ONLY (not timestamp) for restart resilience
+        # This allows the script to resume writing to the same file if it crashes
+        date_str = datetime.now().strftime('%Y%m%d')
+        symbol_str = symbol.replace("/", "")
+        self.output_file = self.data_dir / f'l2_{symbol_str}_{date_str}.jsonl'
+
+        # Check if file already exists (resume mode)
+        self.is_resuming = False
+        if resume and self.output_file.exists():
+            file_size = self.output_file.stat().st_size
+            if file_size > 0:
+                self.is_resuming = True
+                logger.warning(f"⚠️  File already exists: {self.output_file.name}")
+                logger.warning(f"⚠️  Size: {file_size / 1024 / 1024:.2f} MB")
+                logger.warning(f"⚠️  RESUMING: Will append to existing file")
+            else:
+                logger.info(f"Empty file exists, will overwrite: {self.output_file.name}")
 
         logger.info(f"Initialized L2 recorder for {symbol}")
         logger.info(f"Duration: {duration_hours} hours")
         logger.info(f"Depth: {depth} levels")
         logger.info(f"Output: {self.output_file}")
+        logger.info(f"Mode: {'RESUME (append)' if self.is_resuming else 'NEW (overwrite)'}")
 
     def fetch_order_book(self) -> dict:
         """
@@ -129,7 +145,11 @@ class L2DataRecorder:
         snapshots_recorded = 0
         errors = 0
 
-        with open(self.output_file, 'w') as f:
+        # Open in append mode if resuming, otherwise write mode
+        file_mode = 'a' if self.is_resuming else 'w'
+        logger.info(f"File mode: {file_mode} ({'append' if file_mode == 'a' else 'overwrite'})")
+
+        with open(self.output_file, file_mode) as f:
             while datetime.now() < end_time:
                 snapshot = self.fetch_order_book()
 
@@ -196,6 +216,11 @@ def main():
         default=5,
         help='Order book depth (default: 5 levels)'
     )
+    parser.add_argument(
+        '--no-resume',
+        action='store_true',
+        help='Do not resume from existing file, always create new file'
+    )
 
     args = parser.parse_args()
 
@@ -208,7 +233,8 @@ def main():
         recorder = L2DataRecorder(
             symbol=args.symbol,
             duration_hours=args.duration,
-            depth=args.depth
+            depth=args.depth,
+            resume=not args.no_resume  # Invert flag: --no-resume means resume=False
         )
         recorder.record()
     except KeyboardInterrupt:
