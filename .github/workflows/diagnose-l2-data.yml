@@ -1,0 +1,161 @@
+name: Diagnose L2 Data Collection
+
+# This workflow fetches L2 data from the VPS and runs diagnostic analysis
+# to determine if data collection is working correctly or if there are issues
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  diagnose-data:
+    name: Fetch and Diagnose L2 Data
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install loguru
+
+      - name: Create SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Fetch L2 snapshot metadata from VPS
+        id: fetch_metadata
+        run: |
+          echo "Fetching L2 data metadata from VPS..."
+
+          # Get file listing with details
+          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "ls -lh ~/mft-trading-bot/data/l2_snapshots/ 2>/dev/null || echo 'No data directory found'" \
+            > vps_file_list.txt
+
+          cat vps_file_list.txt
+
+          # Check if recording process is running
+          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "ps aux | grep record_l2_data | grep -v grep || echo 'No recording process found'" \
+            > vps_process_status.txt
+
+          cat vps_process_status.txt
+
+      - name: Download L2 snapshot files for analysis
+        run: |
+          echo "Downloading L2 snapshot files..."
+          mkdir -p data/l2_snapshots
+
+          # Download all .jsonl files (up to 100MB total to avoid timeout)
+          scp -i ~/.ssh/vps_key -o StrictHostKeyChecking=no \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/mft-trading-bot/data/l2_snapshots/*.jsonl" \
+            data/l2_snapshots/ 2>/dev/null || echo "No .jsonl files to download"
+
+          # Show what we downloaded
+          echo "Downloaded files:"
+          ls -lh data/l2_snapshots/ || echo "No files downloaded"
+
+      - name: Run diagnostic analysis
+        id: diagnostic
+        run: |
+          echo "Running diagnostic analysis..."
+          python scripts/diagnose_l2_collection.py \
+            --data-dir data/l2_snapshots \
+            --output diagnostic_report.json
+
+          echo "Diagnostic complete"
+
+      - name: Display diagnostic report
+        run: |
+          echo "=========================================="
+          echo "DIAGNOSTIC REPORT"
+          echo "=========================================="
+          cat diagnostic_report.json | python -m json.tool
+
+      - name: Upload diagnostic report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: l2-diagnostic-report
+          path: |
+            diagnostic_report.json
+            vps_file_list.txt
+            vps_process_status.txt
+          retention-days: 30
+
+      - name: Analyze report and create summary
+        run: |
+          echo "=========================================="
+          echo "ANALYSIS SUMMARY"
+          echo "=========================================="
+
+          # Extract key findings from JSON report
+          python3 << 'EOF'
+          import json
+
+          with open('diagnostic_report.json', 'r') as f:
+              report = json.load(f)
+
+          summary = report.get('summary', {})
+          quality = report.get('data_quality', {})
+          recording = report.get('recording_status', {})
+
+          print(f"\n📊 Files Found: {summary.get('total_files', 0)}")
+          print(f"📈 Total Snapshots: {summary.get('total_snapshots', 0):,}")
+          print(f"⏱️  Total Duration: {summary.get('total_duration_hours', 0):.2f} hours")
+          print(f"💾 Total Size: {summary.get('total_size_mb', 0):.2f} MB")
+          print(f"⚠️  Gaps Found: {summary.get('gaps_found', 0)}")
+
+          print(f"\n🔍 Recording Status:")
+          print(f"   {recording.get('conclusion', 'Unknown')}")
+
+          print(f"\n💡 Data Quality:")
+          print(f"   {quality.get('assessment', 'Unknown')}")
+          print(f"   Recommendation: {quality.get('recommendation', 'Unknown')}")
+
+          issues = quality.get('issues', [])
+          if issues:
+              print(f"\n⚠️  Issues Detected:")
+              for issue in issues:
+                  print(f"   - {issue}")
+
+          # Determine if data is corrupted
+          print("\n" + "="*50)
+          if summary.get('total_files', 0) > 1:
+              print("⚠️  CORRUPTION THEORY: LIKELY TRUE")
+              print("   Multiple files suggest script restarts")
+              print("   Need to check for gaps and continuity")
+          elif summary.get('total_duration_hours', 0) < 1:
+              print("⚠️  INSUFFICIENT DATA")
+              print("   Recording duration is too short")
+          elif summary.get('gaps_found', 0) > 0:
+              print("❌ DATA CORRUPTION: CONFIRMED")
+              print("   Time gaps detected between recordings")
+          elif not recording.get('is_active', False) and summary.get('total_duration_hours', 0) < 24:
+              print("⚠️  INCOMPLETE RECORDING")
+              print("   Recording stopped before 24h target")
+          else:
+              print("✅ DATA CORRUPTION: DEBUNKED")
+              print("   Data appears to be clean and continuous")
+          print("="*50)
+
+          EOF
+
+      - name: Comment findings on latest commit
+        run: |
+          echo "Diagnostic complete. Check the Actions tab for the full report."
+          echo "Report artifact will be available for download for 30 days."
