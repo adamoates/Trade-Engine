@@ -1,0 +1,233 @@
+"""
+Risk management for live trading.
+
+Handles all risk checks including:
+- Daily loss limits
+- Trade throttling
+- Position sizing
+- Trading hours
+- Kill switch monitoring
+"""
+
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, Any
+from dataclasses import dataclass
+from loguru import logger
+
+from app.constants import (
+    KILL_SWITCH_FILE_PATH,
+    DEFAULT_MAX_DAILY_LOSS_USD,
+    DEFAULT_MAX_TRADES_PER_DAY,
+    DEFAULT_MAX_POSITION_USD
+)
+from app.engine.types import Signal, Position
+
+
+@dataclass
+class RiskCheckResult:
+    """Result of a risk check."""
+    passed: bool
+    reason: str = ""
+
+
+class RiskManager:
+    """
+    Manages risk controls for live trading.
+
+    Uses boolean returns instead of exceptions for control flow.
+    """
+
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize risk manager.
+
+        Args:
+            config: Risk configuration dict with keys:
+                - max_daily_loss_usd (float)
+                - max_trades_per_day (int)
+                - max_position_usd (float)
+                - trading_hours (dict with start/end keys)
+                - halt (bool)
+        """
+        self.config = config.get("risk", {})
+
+        # Risk limits
+        self.max_daily_loss = self.config.get("max_daily_loss_usd", DEFAULT_MAX_DAILY_LOSS_USD)
+        self.max_trades_per_day = self.config.get("max_trades_per_day", DEFAULT_MAX_TRADES_PER_DAY)
+        self.max_position_usd = self.config.get("max_position_usd", DEFAULT_MAX_POSITION_USD)
+        self.trading_hours = self.config.get("trading_hours", {})
+
+        # Tracking
+        self.daily_trades = 0
+        self.daily_pnl = 0.0
+        self.last_trade_time = None
+
+        logger.info(
+            f"RiskManager initialized | "
+            f"MaxLoss=${self.max_daily_loss} | "
+            f"MaxTrades={self.max_trades_per_day} | "
+            f"MaxPos=${self.max_position_usd}"
+        )
+
+    def check_kill_switch(self) -> RiskCheckResult:
+        """
+        Check for kill switch activation.
+
+        Checks:
+        1. File flag existence
+        2. Config halt flag
+
+        Returns:
+            RiskCheckResult with passed=False if kill switch active
+        """
+        # File flag
+        halt_flag = Path(KILL_SWITCH_FILE_PATH)
+        if halt_flag.exists():
+            return RiskCheckResult(
+                passed=False,
+                reason=f"Kill switch file detected: {KILL_SWITCH_FILE_PATH}"
+            )
+
+        # Config flag
+        if self.config.get("halt", False):
+            return RiskCheckResult(
+                passed=False,
+                reason="Config halt=true"
+            )
+
+        return RiskCheckResult(passed=True)
+
+    def check_daily_loss(self, positions: Dict[str, Position]) -> RiskCheckResult:
+        """
+        Check daily loss limit.
+
+        Args:
+            positions: Current open positions
+
+        Returns:
+            RiskCheckResult with passed=False if loss limit exceeded
+        """
+        # Calculate unrealized P&L from open positions
+        unrealized_pnl = sum(p.pnl for p in positions.values())
+        total_pnl = self.daily_pnl + unrealized_pnl
+
+        if total_pnl < -self.max_daily_loss:
+            return RiskCheckResult(
+                passed=False,
+                reason=f"Daily loss limit exceeded: ${total_pnl:.2f} < -${self.max_daily_loss}"
+            )
+
+        return RiskCheckResult(passed=True)
+
+    def check_trade_throttle(self) -> RiskCheckResult:
+        """
+        Check trade throttle (max trades per day).
+
+        Returns:
+            RiskCheckResult with passed=False if max trades exceeded
+        """
+        if self.daily_trades >= self.max_trades_per_day:
+            return RiskCheckResult(
+                passed=False,
+                reason=f"Max trades/day reached: {self.daily_trades}/{self.max_trades_per_day}"
+            )
+
+        return RiskCheckResult(passed=True)
+
+    def check_position_size(self, signal: Signal) -> RiskCheckResult:
+        """
+        Check position size limits.
+
+        Args:
+            signal: Trading signal to validate
+
+        Returns:
+            RiskCheckResult with passed=False if position too large
+        """
+        # Estimate notional (signal.price is approximate)
+        notional = signal.qty * signal.price
+
+        if notional > self.max_position_usd:
+            return RiskCheckResult(
+                passed=False,
+                reason=f"Position too large: ${notional:.2f} > ${self.max_position_usd}"
+            )
+
+        return RiskCheckResult(passed=True)
+
+    def check_trading_hours(self) -> RiskCheckResult:
+        """
+        Check if within trading hours.
+
+        Returns:
+            RiskCheckResult with passed=False if outside trading hours
+        """
+        if not self.trading_hours:
+            return RiskCheckResult(passed=True)  # No restrictions
+
+        now = datetime.utcnow().time()
+        start_str = self.trading_hours.get("start", "00:00")
+        end_str = self.trading_hours.get("end", "23:59")
+
+        # Parse HH:MM
+        start_h, start_m = map(int, start_str.split(":"))
+        end_h, end_m = map(int, end_str.split(":"))
+
+        start = datetime.utcnow().replace(hour=start_h, minute=start_m).time()
+        end = datetime.utcnow().replace(hour=end_h, minute=end_m).time()
+
+        if not (start <= now <= end):
+            return RiskCheckResult(
+                passed=False,
+                reason=f"Outside trading hours: {now} not in {start}-{end}"
+            )
+
+        return RiskCheckResult(passed=True)
+
+    def check_all(self, signal: Signal, positions: Dict[str, Position]) -> RiskCheckResult:
+        """
+        Run all risk checks.
+
+        Args:
+            signal: Trading signal to validate
+            positions: Current open positions
+
+        Returns:
+            RiskCheckResult with first failed check, or passed=True if all pass
+        """
+        checks = [
+            self.check_kill_switch(),
+            self.check_daily_loss(positions),
+            self.check_trade_throttle(),
+            self.check_position_size(signal),
+            self.check_trading_hours()
+        ]
+
+        for check in checks:
+            if not check.passed:
+                return check
+
+        return RiskCheckResult(passed=True)
+
+    def record_trade(self):
+        """Record a trade execution."""
+        self.daily_trades += 1
+        self.last_trade_time = datetime.utcnow()
+        logger.debug(f"Trade recorded | Daily count: {self.daily_trades}")
+
+    def update_daily_pnl(self, pnl: float):
+        """Update daily realized P&L."""
+        self.daily_pnl += pnl
+        logger.debug(f"Daily P&L updated: ${self.daily_pnl:.2f}")
+
+    def reset_daily_counters(self):
+        """Reset daily counters (call at start of new trading day)."""
+        logger.info(
+            f"Resetting daily counters | "
+            f"Trades: {self.daily_trades} | "
+            f"P&L: ${self.daily_pnl:.2f}"
+        )
+        self.daily_trades = 0
+        self.daily_pnl = 0.0
+        self.last_trade_time = None
