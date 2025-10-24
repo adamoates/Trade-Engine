@@ -177,7 +177,16 @@ class RiskManager:
         start = datetime.utcnow().replace(hour=start_h, minute=start_m).time()
         end = datetime.utcnow().replace(hour=end_h, minute=end_m).time()
 
-        if not (start <= now <= end):
+        # Handle midnight wrap-around (e.g., 22:00-02:00)
+        if start <= end:
+            # Normal range (e.g., 08:00-18:00)
+            in_hours = start <= now <= end
+        else:
+            # Wrap-around range (e.g., 22:00-02:00)
+            # Trading allowed if: now >= 22:00 OR now <= 02:00
+            in_hours = now >= start or now <= end
+
+        if not in_hours:
             return RiskCheckResult(
                 passed=False,
                 reason=f"Outside trading hours: {now} not in {start}-{end}"
