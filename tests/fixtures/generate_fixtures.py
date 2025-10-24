@@ -246,8 +246,8 @@ class FixtureGenerator:
                     "description": "Missing data - gap in timestamps",
                     "candles": [
                         {"timestamp": 4000000, "open": 50000, "high": 50100, "low": 49900, "close": 50000, "volume": 100},
-                        # 10-minute gap
-                        {"timestamp": 4000600, "open": 51000, "high": 51100, "low": 50900, "close": 51000, "volume": 150},
+                        # 10-minute gap (600000ms)
+                        {"timestamp": 4600000, "open": 51000, "high": 51100, "low": 50900, "close": 51000, "volume": 150},
                     ]
                 }
             }
@@ -272,51 +272,74 @@ class FixtureGenerator:
         logger.info("=" * 60)
         logger.info("")
 
+        success_count = 0
+        total_count = 5
+
+        # 1. Binance hourly data (7 days)
         try:
-            # 1. Binance hourly data (7 days)
             logger.info("1/5: Binance BTC/USDT hourly data...")
             binance_1h = self.fetch_binance_ohlcv("BTCUSDT", "1h", 168)
             self.save_fixture(binance_1h, "btc_usdt_binance_1h_sample.json")
+            success_count += 1
             time.sleep(1)
+        except Exception as e:
+            logger.warning(f"Binance 1h fetch failed: {e}")
 
-            # 2. Binance daily data (30 days)
+        # 2. Binance daily data (30 days)
+        try:
             logger.info("2/5: Binance BTC/USDT daily data...")
             binance_1d = self.fetch_binance_ohlcv("BTCUSDT", "1d", 30)
             self.save_fixture(binance_1d, "btc_usdt_binance_1d_sample.json")
+            success_count += 1
             time.sleep(1)
+        except Exception as e:
+            logger.warning(f"Binance 1d fetch failed: {e}")
 
-            # 3. CoinGecko daily data (90 days)
+        # 3. CoinGecko daily data (90 days)
+        try:
             logger.info("3/5: CoinGecko BTC/USD daily data...")
             coingecko_btc = self.fetch_coingecko_ohlcv("bitcoin", "usd", 90)
             self.save_fixture(coingecko_btc, "btc_usd_coingecko_daily_sample.json")
+            success_count += 1
             time.sleep(1)
+        except Exception as e:
+            logger.warning(f"CoinGecko fetch failed: {e}")
 
-            # 4. Multi-source consensus
+        # 4. Multi-source consensus
+        try:
             logger.info("4/5: Multi-source consensus data...")
             multi_source = self.fetch_multi_source_consensus()
             self.save_fixture(multi_source, "btc_usd_multi_source_sample.json")
+            success_count += 1
+        except Exception as e:
+            logger.warning(f"Multi-source fetch failed: {e}")
 
-            # 5. Known anomalies
+        # 5. Known anomalies (always works - synthetic data)
+        try:
             logger.info("5/5: Known anomaly fixtures...")
             anomalies = self.create_known_anomaly_fixtures()
             self.save_fixture(anomalies, "known_anomalies.json")
-
-            logger.info("")
-            logger.info("=" * 60)
-            logger.success("✓ ALL FIXTURES GENERATED SUCCESSFULLY")
-            logger.info("=" * 60)
-            logger.info("")
-            logger.info("Fixtures saved to: tests/fixtures/")
-            logger.info("")
-            logger.info("Next steps:")
-            logger.info("  1. Review generated fixtures")
-            logger.info("  2. Run: pytest tests/unit/test_fixtures.py -v")
-            logger.info("  3. Update your tests to use these fixtures")
-            logger.info("")
-
+            success_count += 1
         except Exception as e:
-            logger.error(f"Failed to generate fixtures: {e}")
-            raise
+            logger.warning(f"Anomaly creation failed: {e}")
+
+        logger.info("")
+        logger.info("=" * 60)
+        if success_count == total_count:
+            logger.success(f"✓ ALL {total_count} FIXTURES GENERATED SUCCESSFULLY")
+        elif success_count > 0:
+            logger.warning(f"⚠ PARTIAL SUCCESS: {success_count}/{total_count} fixtures generated")
+        else:
+            logger.error(f"✗ FAILED: No fixtures generated")
+        logger.info("=" * 60)
+        logger.info("")
+        logger.info("Fixtures saved to: tests/fixtures/")
+        logger.info("")
+        logger.info("Next steps:")
+        logger.info("  1. Review generated fixtures")
+        logger.info("  2. Run: pytest tests/unit/test_fixtures.py -v")
+        logger.info("  3. Update your tests to use these fixtures")
+        logger.info("")
 
 
 def main():

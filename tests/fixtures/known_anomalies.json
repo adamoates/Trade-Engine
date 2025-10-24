@@ -1,0 +1,116 @@
+{
+  "metadata": {
+    "description": "Known market anomalies and edge cases for testing",
+    "created_at": "2025-10-24T07:15:45.181122+00:00"
+  },
+  "scenarios": {
+    "flash_crash": {
+      "description": "Simulated flash crash - 20% drop in 1 minute",
+      "candles": [
+        {
+          "timestamp": 1000000,
+          "open": 50000,
+          "high": 50100,
+          "low": 49900,
+          "close": 50000,
+          "volume": 100
+        },
+        {
+          "timestamp": 1000060,
+          "open": 50000,
+          "high": 50000,
+          "low": 40000,
+          "close": 40000,
+          "volume": 5000
+        },
+        {
+          "timestamp": 1000120,
+          "open": 40000,
+          "high": 45000,
+          "low": 40000,
+          "close": 44000,
+          "volume": 2000
+        }
+      ]
+    },
+    "zero_volume": {
+      "description": "Exchange halt - zero volume period",
+      "candles": [
+        {
+          "timestamp": 2000000,
+          "open": 50000,
+          "high": 50100,
+          "low": 49900,
+          "close": 50000,
+          "volume": 100
+        },
+        {
+          "timestamp": 2000060,
+          "open": 50000,
+          "high": 50000,
+          "low": 50000,
+          "close": 50000,
+          "volume": 0
+        },
+        {
+          "timestamp": 2000120,
+          "open": 50000,
+          "high": 50100,
+          "low": 49900,
+          "close": 50050,
+          "volume": 150
+        }
+      ]
+    },
+    "price_spike": {
+      "description": "Manipulation spike - brief 100x price",
+      "candles": [
+        {
+          "timestamp": 3000000,
+          "open": 50000,
+          "high": 50100,
+          "low": 49900,
+          "close": 50000,
+          "volume": 100
+        },
+        {
+          "timestamp": 3000060,
+          "open": 50000,
+          "high": 5000000,
+          "low": 50000,
+          "close": 50100,
+          "volume": 1
+        },
+        {
+          "timestamp": 3000120,
+          "open": 50100,
+          "high": 50200,
+          "low": 50000,
+          "close": 50050,
+          "volume": 120
+        }
+      ]
+    },
+    "data_gap": {
+      "description": "Missing data - gap in timestamps",
+      "candles": [
+        {
+          "timestamp": 4000000,
+          "open": 50000,
+          "high": 50100,
+          "low": 49900,
+          "close": 50000,
+          "volume": 100
+        },
+        {
+          "timestamp": 4600000,
+          "open": 51000,
+          "high": 51100,
+          "low": 50900,
+          "close": 51000,
+          "volume": 150
+        }
+      ]
+    }
+  }
+}

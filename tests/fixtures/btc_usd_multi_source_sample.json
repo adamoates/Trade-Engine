@@ -1,0 +1,14 @@
+{
+  "metadata": {
+    "description": "Multi-source price data for cross-validation testing",
+    "symbol": "BTC/USD",
+    "sources_count": 1,
+    "fetched_at": "2025-10-24T07:11:51.969042+00:00"
+  },
+  "data": {
+    "coingecko": {
+      "price": 111338.0,
+      "timestamp": 1761289911969
+    }
+  }
+}
