@@ -11,7 +11,7 @@ Provides access to:
 Free, no API key required.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from loguru import logger
 
@@ -155,11 +155,12 @@ class YahooFinanceSource(DataSource):
             info = ticker.info
 
             # Get current price (multiple fallbacks)
-            price = (
-                info.get('currentPrice') or
-                info.get('regularMarketPrice') or
-                info.get('previousClose')
-            )
+            # Note: Use explicit None checks to handle zero prices correctly
+            price = info.get('currentPrice')
+            if price is None:
+                price = info.get('regularMarketPrice')
+            if price is None:
+                price = info.get('previousClose')
 
             if price is None:
                 raise ValueError(f"No price data available for {symbol}")
@@ -170,7 +171,7 @@ class YahooFinanceSource(DataSource):
                 bid=info.get('bid'),
                 ask=info.get('ask'),
                 volume_24h=info.get('volume'),
-                timestamp=int(datetime.utcnow().timestamp() * 1000),
+                timestamp=int(datetime.now(timezone.utc).timestamp() * 1000),
                 source=DataSourceType.YAHOO_FINANCE
             )
 

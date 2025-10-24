@@ -11,7 +11,7 @@ Disclaimer: This tool provides educational market data analysis.
 It is not personalized financial advice. Verify all data with primary sources.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 import statistics
@@ -167,22 +167,29 @@ class DataAggregator:
         prices = [q.price for q in quotes.values()]
         median_price = statistics.median(prices)
         std_dev = statistics.stdev(prices) if len(prices) > 1 else 0.0
-        price_range_pct = ((max(prices) - min(prices)) / median_price) * 100
 
-        # Detect anomalies
-        anomalies = []
-        for src_type, quote in quotes.items():
-            deviation_pct = abs((quote.price - median_price) / median_price) * 100
-            if deviation_pct > self.MAX_PRICE_DEVIATION_PCT:
-                anomalies.append((
-                    src_type,
-                    quote.price,
-                    f"Deviation {deviation_pct:.2f}% from consensus"
-                ))
+        # Handle zero price edge case (delisted/halted assets)
+        if median_price == 0:
+            logger.warning(f"Zero median price for {symbol} - skipping percentage calculations")
+            price_range_pct = 0.0
+            anomalies = []
+        else:
+            price_range_pct = ((max(prices) - min(prices)) / median_price) * 100
+
+            # Detect anomalies
+            anomalies = []
+            for src_type, quote in quotes.items():
+                deviation_pct = abs((quote.price - median_price) / median_price) * 100
+                if deviation_pct > self.MAX_PRICE_DEVIATION_PCT:
+                    anomalies.append((
+                        src_type,
+                        quote.price,
+                        f"Deviation {deviation_pct:.2f}% from consensus"
+                    ))
 
         validation = CrossValidationResult(
             symbol=symbol,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             sources_checked=len(quotes),
             consensus_price=median_price,
             price_std_dev=std_dev,
@@ -199,7 +206,7 @@ class DataAggregator:
             bid=first_quote.bid,
             ask=first_quote.ask,
             volume_24h=first_quote.volume_24h,
-            timestamp=int(datetime.utcnow().timestamp() * 1000),
+            timestamp=int(datetime.now(timezone.utc).timestamp() * 1000),
             source=None  # Consensus, not single source
         )
 
@@ -247,22 +254,29 @@ class DataAggregator:
             close_prices = [c.close for c in candles_at_ts]
             median_close = statistics.median(close_prices)
             std_dev = statistics.stdev(close_prices) if len(close_prices) > 1 else 0.0
-            price_range_pct = ((max(close_prices) - min(close_prices)) / median_close) * 100
 
-            # Detect anomalies
-            anomalies = []
-            for candle in candles_at_ts:
-                deviation_pct = abs((candle.close - median_close) / median_close) * 100
-                if deviation_pct > self.MAX_PRICE_DEVIATION_PCT:
-                    anomalies.append((
-                        candle.source,
-                        candle.close,
-                        f"Price deviation {deviation_pct:.2f}%"
-                    ))
+            # Handle zero price edge case
+            if median_close == 0:
+                logger.warning(f"Zero median close price for {symbol} at {timestamp} - skipping percentage calculations")
+                price_range_pct = 0.0
+                anomalies = []
+            else:
+                price_range_pct = ((max(close_prices) - min(close_prices)) / median_close) * 100
+
+                # Detect anomalies
+                anomalies = []
+                for candle in candles_at_ts:
+                    deviation_pct = abs((candle.close - median_close) / median_close) * 100
+                    if deviation_pct > self.MAX_PRICE_DEVIATION_PCT:
+                        anomalies.append((
+                            candle.source,
+                            candle.close,
+                            f"Price deviation {deviation_pct:.2f}%"
+                        ))
 
             validation = CrossValidationResult(
                 symbol=symbol,
-                timestamp=datetime.utcfromtimestamp(timestamp / 1000),
+                timestamp=datetime.fromtimestamp(timestamp / 1000, timezone.utc),
                 sources_checked=len(candles_at_ts),
                 consensus_price=median_close,
                 price_std_dev=std_dev,
@@ -314,16 +328,23 @@ class DataAggregator:
             try:
                 candles = source.fetch_ohlcv(symbol, interval, start, end)
 
+                # Calculate expected bar count and missing bars
+                expected_bars = self._calculate_expected_bars(interval, start, end)
+                missing_bars = max(0, expected_bars - len(candles))
+
+                # Calculate time gaps
+                gaps_seconds = self._calculate_gaps_seconds(candles, interval)
+
                 # Calculate quality metrics
                 quality = DataQualityMetrics(
                     source=source.source_type,
                     symbol=symbol,
                     rows=len(candles),
-                    missing_bars=0,  # TODO: Calculate based on expected count
+                    missing_bars=missing_bars,
                     zero_volume_bars=sum(1 for c in candles if c.volume == 0),
                     price_anomalies=self._count_price_anomalies(candles),
                     duplicate_timestamps=self._count_duplicates(candles),
-                    gaps_seconds_total=0  # TODO: Calculate gaps
+                    gaps_seconds_total=gaps_seconds
                 )
 
                 metrics[source.source_type] = quality
@@ -346,6 +367,7 @@ class DataAggregator:
             prev_close = candles[i-1].close
             curr_close = candles[i].close
 
+            # Skip zero prices to avoid division by zero
             if prev_close > 0:
                 change_pct = abs((curr_close - prev_close) / prev_close) * 100
                 if change_pct > threshold_pct:
@@ -358,6 +380,91 @@ class DataAggregator:
         """Count duplicate timestamps."""
         timestamps = [c.timestamp for c in candles]
         return len(timestamps) - len(set(timestamps))
+
+    @staticmethod
+    def _calculate_expected_bars(interval: str, start: datetime, end: datetime) -> int:
+        """
+        Calculate expected number of bars based on interval and time range.
+
+        Args:
+            interval: Candle interval (1m, 5m, 1h, 1d, etc.)
+            start: Start time
+            end: End time
+
+        Returns:
+            Expected number of bars
+
+        Raises:
+            ValueError: If start is after end
+        """
+        # Validate date range
+        if start > end:
+            raise ValueError(f"Invalid date range: start ({start}) is after end ({end})")
+
+        # Map interval to seconds
+        interval_seconds = {
+            "1m": 60,
+            "2m": 120,
+            "5m": 300,
+            "15m": 900,
+            "30m": 1800,
+            "1h": 3600,
+            "2h": 7200,
+            "4h": 14400,
+            "1d": 86400,
+            "1wk": 604800,
+            "1mo": 2592000  # Approximate (30 days)
+        }
+
+        seconds_per_bar = interval_seconds.get(interval, 60)  # Default to 1m
+        total_seconds = int((end - start).total_seconds())
+
+        if total_seconds < 0:
+            return 0
+
+        return max(1, total_seconds // seconds_per_bar)
+
+    @staticmethod
+    def _calculate_gaps_seconds(candles: List[OHLCV], interval: str) -> int:
+        """
+        Calculate total seconds of gaps in the data.
+
+        Args:
+            candles: List of OHLCV candles (must be sorted by timestamp)
+            interval: Expected candle interval
+
+        Returns:
+            Total seconds of missing data (gaps)
+        """
+        if len(candles) < 2:
+            return 0
+
+        # Map interval to milliseconds
+        interval_ms = {
+            "1m": 60000,
+            "2m": 120000,
+            "5m": 300000,
+            "15m": 900000,
+            "30m": 1800000,
+            "1h": 3600000,
+            "2h": 7200000,
+            "4h": 14400000,
+            "1d": 86400000,
+            "1wk": 604800000,
+            "1mo": 2592000000
+        }
+
+        expected_gap_ms = interval_ms.get(interval, 60000)  # Default to 1m
+        total_gap_seconds = 0
+
+        for i in range(1, len(candles)):
+            actual_gap_ms = candles[i].timestamp - candles[i-1].timestamp
+            # If gap is larger than expected, count the excess
+            if actual_gap_ms > expected_gap_ms * 1.5:  # Allow 50% tolerance
+                excess_gap_ms = actual_gap_ms - expected_gap_ms
+                total_gap_seconds += excess_gap_ms // 1000
+
+        return total_gap_seconds
 
 
 # ========== Disclaimer ==========

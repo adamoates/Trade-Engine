@@ -1,6 +1,6 @@
 """Unit tests for multi-source data aggregation."""
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 import statistics
 
@@ -131,7 +131,7 @@ class TestOHLCVConsensus:
     def test_ohlcv_consensus_with_matching_timestamps(self):
         """Test consensus when sources have matching timestamps."""
         # ARRANGE
-        ts = int(datetime.utcnow().timestamp() * 1000)
+        ts = int(datetime.now(timezone.utc).timestamp() * 1000)
 
         candles1 = [
             OHLCV(ts, 100.0, 105.0, 99.0, 102.0, 1000.0, DataSourceType.BINANCE, "BTC"),
@@ -148,7 +148,7 @@ class TestOHLCVConsensus:
 
         aggregator = DataAggregator([source1, source2])
 
-        start = datetime.utcfromtimestamp(ts / 1000)
+        start = datetime.fromtimestamp(ts / 1000, timezone.utc)
         end = start + timedelta(minutes=5)
 
         # ACT
@@ -165,7 +165,7 @@ class TestOHLCVConsensus:
     def test_ohlcv_consensus_detects_price_anomaly(self):
         """Test detection of abnormal price in one source."""
         # ARRANGE
-        ts = int(datetime.utcnow().timestamp() * 1000)
+        ts = int(datetime.now(timezone.utc).timestamp() * 1000)
 
         candles1 = [
             OHLCV(ts, 100.0, 105.0, 99.0, 102.0, 1000.0, DataSourceType.BINANCE, "BTC")
@@ -180,7 +180,7 @@ class TestOHLCVConsensus:
 
         aggregator = DataAggregator([source1, source2])
 
-        start = datetime.utcfromtimestamp(ts / 1000)
+        start = datetime.fromtimestamp(ts / 1000, timezone.utc)
         end = start + timedelta(minutes=5)
 
         # ACT
@@ -249,8 +249,8 @@ class TestDataQualityMetrics:
         source = MockDataSource(DataSourceType.BINANCE, candles)
         aggregator = DataAggregator([source])
 
-        start = datetime.utcnow() - timedelta(days=1)
-        end = datetime.utcnow()
+        start = datetime.now(timezone.utc) - timedelta(days=1)
+        end = datetime.now(timezone.utc)
 
         # ACT
         metrics = aggregator.get_quality_metrics("BTC", "1m", start, end)
@@ -293,7 +293,7 @@ class TestCrossValidationResult:
         # ARRANGE
         result = CrossValidationResult(
             symbol="BTC",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             sources_checked=2,
             consensus_price=66500.0,
             price_std_dev=2000.0,

@@ -11,7 +11,7 @@ Free API (rate limited: 10-50 calls/minute depending on plan).
 No API key required for public endpoints.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from loguru import logger
 import requests
@@ -55,6 +55,24 @@ class CoinGeckoSource(DataSource):
 
         if api_key:
             self.session.headers.update({"x-cg-pro-api-key": api_key})
+
+    def __del__(self):
+        """Clean up session on deletion to prevent resource leak."""
+        if hasattr(self, 'session'):
+            try:
+                self.session.close()
+            except Exception:
+                pass  # Ignore errors during cleanup
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - close session."""
+        if hasattr(self, 'session'):
+            self.session.close()
+        return False
 
     @property
     def source_type(self) -> DataSourceType:
@@ -176,7 +194,7 @@ class CoinGeckoSource(DataSource):
                 symbol=coin_id,
                 price=float(coin_data["usd"]),
                 volume_24h=coin_data.get("usd_24h_vol"),
-                timestamp=coin_data.get("last_updated_at", int(datetime.utcnow().timestamp())) * 1000,
+                timestamp=coin_data.get("last_updated_at", int(datetime.now(timezone.utc).timestamp())) * 1000,
                 source=DataSourceType.COINGECKO
             )
 

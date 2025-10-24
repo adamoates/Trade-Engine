@@ -6,7 +6,7 @@ Defines abstract base class for data sources and shared data structures.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from enum import Enum
 
@@ -24,6 +24,7 @@ class AssetType(Enum):
 class DataSourceType(Enum):
     """Data source provider."""
     BINANCE = "binance"
+    COINMARKETCAP = "coinmarketcap"
     YAHOO_FINANCE = "yahoo"
     COINGECKO = "coingecko"
     ALPHA_VANTAGE = "alphavantage"
@@ -50,7 +51,7 @@ class OHLCV:
     @property
     def datetime_utc(self) -> datetime:
         """Convert timestamp to datetime (UTC)."""
-        return datetime.utcfromtimestamp(self.timestamp / 1000)
+        return datetime.fromtimestamp(self.timestamp / 1000, timezone.utc)
 
     def __repr__(self):
         return (f"OHLCV({self.datetime_utc.isoformat()}, O={self.open:.2f}, "
