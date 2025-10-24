@@ -11,6 +11,7 @@ Handles all risk checks including:
 
 from pathlib import Path
 from datetime import datetime
+from decimal import Decimal
 from typing import Dict, Any
 from dataclasses import dataclass
 from loguru import logger
@@ -52,15 +53,15 @@ class RiskManager:
         """
         self.config = config.get("risk", {})
 
-        # Risk limits
-        self.max_daily_loss = self.config.get("max_daily_loss_usd", DEFAULT_MAX_DAILY_LOSS_USD)
+        # Risk limits (convert to Decimal for precise financial calculations)
+        self.max_daily_loss = Decimal(str(self.config.get("max_daily_loss_usd", DEFAULT_MAX_DAILY_LOSS_USD)))
         self.max_trades_per_day = self.config.get("max_trades_per_day", DEFAULT_MAX_TRADES_PER_DAY)
-        self.max_position_usd = self.config.get("max_position_usd", DEFAULT_MAX_POSITION_USD)
+        self.max_position_usd = Decimal(str(self.config.get("max_position_usd", DEFAULT_MAX_POSITION_USD)))
         self.trading_hours = self.config.get("trading_hours", {})
 
         # Tracking
         self.daily_trades = 0
-        self.daily_pnl = 0.0
+        self.daily_pnl = Decimal("0")
         self.last_trade_time = None
 
         logger.info(
@@ -225,7 +226,7 @@ class RiskManager:
         self.last_trade_time = datetime.utcnow()
         logger.debug(f"Trade recorded | Daily count: {self.daily_trades}")
 
-    def update_daily_pnl(self, pnl: float):
+    def update_daily_pnl(self, pnl: Decimal):
         """Update daily realized P&L."""
         self.daily_pnl += pnl
         logger.debug(f"Daily P&L updated: ${self.daily_pnl:.2f}")
@@ -238,5 +239,5 @@ class RiskManager:
             f"P&L: ${self.daily_pnl:.2f}"
         )
         self.daily_trades = 0
-        self.daily_pnl = 0.0
+        self.daily_pnl = Decimal("0")
         self.last_trade_time = None
