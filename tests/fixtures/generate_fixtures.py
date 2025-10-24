@@ -27,9 +27,21 @@ OUTPUT_DIR = FIXTURES_DIR
 class FixtureGenerator:
     """Generates test fixtures from real historical data."""
 
+    # IMPORTANT: Always use Binance.US API for US-based access
+    # The international Binance.com API returns HTTP 451 in the US
+    BINANCE_API_BASE = "https://api.binance.us"  # US version
+    # BINANCE_API_BASE = "https://api.binance.com"  # International (blocked in US)
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "MFT-Test-Fixtures/1.0"})
+
+        # Verify we're using the US API
+        if "binance.us" not in self.BINANCE_API_BASE:
+            logger.warning(
+                "⚠️  WARNING: Using international Binance API - may be blocked in US. "
+                "Set BINANCE_API_BASE to 'https://api.binance.us' for US access."
+            )
 
     def fetch_binance_ohlcv(
         self,
@@ -38,7 +50,7 @@ class FixtureGenerator:
         limit: int = 168  # 7 days of hourly data
     ) -> Dict[str, Any]:
         """
-        Fetch real OHLCV data from Binance public API.
+        Fetch real OHLCV data from Binance.US public API.
 
         Args:
             symbol: Trading pair (e.g., BTCUSDT)
@@ -48,9 +60,9 @@ class FixtureGenerator:
         Returns:
             Dict with metadata and candle data
         """
-        logger.info(f"Fetching Binance {symbol} {interval} data ({limit} candles)...")
+        logger.info(f"Fetching Binance.US {symbol} {interval} data ({limit} candles)...")
 
-        url = "https://api.binance.com/api/v3/klines"
+        url = f"{self.BINANCE_API_BASE}/api/v3/klines"
         params = {
             "symbol": symbol,
             "interval": interval,
@@ -76,18 +88,19 @@ class FixtureGenerator:
 
         fixture = {
             "metadata": {
-                "source": "binance",
+                "source": "binance_us",
                 "symbol": symbol,
                 "interval": interval,
                 "start_timestamp": candles[0]["timestamp"],
                 "end_timestamp": candles[-1]["timestamp"],
                 "candle_count": len(candles),
+                "api_endpoint": self.BINANCE_API_BASE,
                 "fetched_at": datetime.now(timezone.utc).isoformat()
             },
             "data": candles
         }
 
-        logger.success(f"Fetched {len(candles)} candles from Binance")
+        logger.success(f"Fetched {len(candles)} candles from Binance.US")
         return fixture
 
     def fetch_coingecko_ohlcv(
@@ -158,9 +171,9 @@ class FixtureGenerator:
         # Get current price from multiple sources
         sources = {}
 
-        # Binance
+        # Binance.US
         try:
-            url = "https://api.binance.com/api/v3/ticker/price"
+            url = f"{self.BINANCE_API_BASE}/api/v3/ticker/price"
             response = self.session.get(url, params={"symbol": "BTCUSDT"}, timeout=10)
             response.raise_for_status()
             data = response.json()
@@ -169,7 +182,7 @@ class FixtureGenerator:
                 "timestamp": int(time.time() * 1000)
             }
         except Exception as e:
-            logger.warning(f"Binance fetch failed: {e}")
+            logger.warning(f"Binance.US fetch failed: {e}")
 
         time.sleep(1)  # Rate limiting
 

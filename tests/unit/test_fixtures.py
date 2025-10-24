@@ -25,7 +25,6 @@ from tests.fixtures.helpers import (
 class TestFixtureAvailability:
     """Test that all required fixtures exist."""
 
-    @pytest.mark.skip(reason="Binance API unavailable in current region (HTTP 451)")
     def test_binance_1h_fixture_exists(self):
         """Test Binance 1h fixture can be loaded."""
         fixture = load_fixture("btc_usdt_binance_1h_sample.json")
@@ -33,7 +32,6 @@ class TestFixtureAvailability:
         assert "metadata" in fixture
         assert "data" in fixture
 
-    @pytest.mark.skip(reason="Binance API unavailable in current region (HTTP 451)")
     def test_binance_1d_fixture_exists(self):
         """Test Binance 1d fixture can be loaded."""
         fixture = load_fixture("btc_usdt_binance_1d_sample.json")
@@ -55,9 +53,8 @@ class TestFixtureAvailability:
         assert fixture is not None
 
 
-@pytest.mark.skip(reason="Binance API unavailable - all Binance tests skipped")
 class TestBinanceFixtureIntegrity:
-    """Test Binance fixture data integrity."""
+    """Test Binance.US fixture data integrity."""
 
     def test_binance_1h_has_correct_structure(self):
         """Test fixture has required metadata and data fields."""
@@ -66,11 +63,15 @@ class TestBinanceFixtureIntegrity:
         # Metadata
         assert "metadata" in fixture
         meta = fixture["metadata"]
-        assert meta["source"] == "binance"
+        assert meta["source"] in ["binance", "binance_us"]  # Accept both versions
         assert meta["symbol"] == "BTCUSDT"
         assert meta["interval"] == "1h"
         assert "candle_count" in meta
         assert "fetched_at" in meta
+
+        # Verify using US API if specified
+        if "api_endpoint" in meta:
+            assert "binance.us" in meta["api_endpoint"], "Should use Binance.US API for US access"
 
         # Data
         assert "data" in fixture
@@ -169,10 +170,11 @@ class TestMultiSourceFixture:
         assert "data" in fixture
         sources = fixture["data"]
 
-        # Should have at least 1 source (Binance may be blocked)
-        assert len(sources) >= 1
+        # Should have at least 2 sources (Binance.US and CoinGecko)
+        assert len(sources) >= 2
 
-        # Should have CoinGecko at minimum
+        # Should have both major sources
+        assert "binance" in sources
         assert "coingecko" in sources
 
     def test_multi_source_prices_are_consistent(self):

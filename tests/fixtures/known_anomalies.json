@@ -1,7 +1,7 @@
 {
   "metadata": {
     "description": "Known market anomalies and edge cases for testing",
-    "created_at": "2025-10-24T07:15:45.181122+00:00"
+    "created_at": "2025-10-24T07:19:18.032306+00:00"
   },
   "scenarios": {
     "flash_crash": {
