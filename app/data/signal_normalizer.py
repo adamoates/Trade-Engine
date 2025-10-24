@@ -54,12 +54,31 @@ class SignalHistory:
         return std if std > 0 else 1.0
 
     def get_percentile_rank(self, value: float) -> float:
-        """Get percentile rank of value within historical data."""
+        """
+        Get percentile rank of value within historical data.
+
+        Uses average rank method to handle ties correctly:
+        - Values strictly less than current: count as full rank
+        - Values equal to current: count as half rank (average position)
+
+        This ensures tied values (e.g., steady gas prices) produce neutral scores
+        instead of extreme bearish (-1.0).
+
+        Example:
+            history = [50, 50, 50, 50, 50], value = 50
+            → percentile = (0 + 0.5*5) / 5 = 0.5 (median, neutral)
+        """
         if not self.values:
             return 0.5  # Neutral if no history
 
         values_array = np.array(self.values)
-        percentile = (values_array < value).sum() / len(values_array)
+
+        # Tie-aware percentile: average rank method
+        # percentile = (count_below + 0.5 * count_equal) / total
+        count_below = (values_array < value).sum()
+        count_equal = (values_array == value).sum()
+        percentile = (count_below + 0.5 * count_equal) / len(values_array)
+
         return float(percentile)
 
 

@@ -103,6 +103,56 @@ class TestSignalHistory:
         assert history.get_percentile_rank(25.0) == 0.4  # Between 20 and 30 (2/5)
         assert history.get_percentile_rank(60.0) == 1.0  # Above all values
 
+    def test_get_percentile_rank_with_ties_all_equal(self):
+        """Test percentile ranking when all values are identical (tie-handling)."""
+        history = SignalHistory(signal_name="test_signal")
+        timestamp = datetime.now(timezone.utc)
+
+        # Add identical values (common in steady signals like constant gas prices)
+        for _ in range(5):
+            history.add_value(50.0, timestamp)
+
+        # When value equals all historical values, should return 0.5 (median)
+        # Using average rank method: (0 + 0.5*5) / 5 = 0.5
+        percentile = history.get_percentile_rank(50.0)
+        assert percentile == 0.5  # Neutral, not 0.0 (extreme bearish)
+
+    def test_get_percentile_rank_with_partial_ties(self):
+        """Test percentile ranking with some tied values."""
+        history = SignalHistory(signal_name="test_signal")
+        timestamp = datetime.now(timezone.utc)
+
+        # Add values [40, 50, 50, 60, 70]
+        for value in [40, 50, 50, 60, 70]:
+            history.add_value(float(value), timestamp)
+
+        # Test value that ties with some historical values
+        # count_below=1 (the 40), count_equal=2 (the two 50s)
+        # percentile = (1 + 0.5*2) / 5 = 2/5 = 0.4
+        percentile = history.get_percentile_rank(50.0)
+        assert percentile == 0.4
+
+    def test_get_percentile_rank_with_ties_at_extremes(self):
+        """Test percentile ranking when tied at min or max."""
+        history = SignalHistory(signal_name="test_signal")
+        timestamp = datetime.now(timezone.utc)
+
+        # Add values [10, 10, 30, 50, 50]
+        for value in [10, 10, 30, 50, 50]:
+            history.add_value(float(value), timestamp)
+
+        # Test value tied at minimum
+        # count_below=0, count_equal=2
+        # percentile = (0 + 0.5*2) / 5 = 0.2
+        percentile_min = history.get_percentile_rank(10.0)
+        assert percentile_min == 0.2
+
+        # Test value tied at maximum
+        # count_below=3 (10, 10, 30), count_equal=2
+        # percentile = (3 + 0.5*2) / 5 = 0.8
+        percentile_max = history.get_percentile_rank(50.0)
+        assert percentile_max == 0.8
+
 
 class TestSignalNormalizerInit:
     """Test SignalNormalizer initialization."""
@@ -255,6 +305,46 @@ class TestPercentileNormalization:
 
         normalized_extreme_low = normalizer.normalize(-10000.0, "test_signal")
         assert normalized_extreme_low == -1.0
+
+    def test_percentile_steady_signal_produces_neutral(self):
+        """
+        Test that steady signals (all equal values) produce neutral score.
+
+        This is a regression test for the tie-handling bug where identical
+        values were scored as extreme bearish (-1.0) instead of neutral (0.0).
+
+        Example: Steady gas prices of 50 gwei should produce 0.0 (neutral),
+        not -1.0 (extreme bearish signal).
+        """
+        normalizer = SignalNormalizer(method="percentile")
+
+        # Build history with identical values (steady gas price scenario)
+        for _ in range(10):
+            normalizer.normalize(50.0, "gas_price")
+
+        # Normalize another identical value
+        # Before fix: percentile = 0.0 → normalized = -1.0 (WRONG)
+        # After fix: percentile = 0.5 → normalized = 0.0 (CORRECT)
+        normalized = normalizer.normalize(50.0, "gas_price")
+
+        assert normalized == 0.0  # Should be neutral, not extreme bearish
+
+    def test_percentile_with_mixed_ties(self):
+        """Test percentile normalization with realistic mixed ties scenario."""
+        normalizer = SignalNormalizer(method="percentile")
+
+        # Build history with some ties: [40, 50, 50, 50, 60, 70]
+        for value in [40, 50, 50, 50, 60, 70]:
+            normalizer.normalize(value, "test_signal")
+
+        # Normalize a value that ties with historical values
+        # count_below=1 (40), count_equal=3 (three 50s)
+        # percentile = (1 + 0.5*3) / 6 = 2.5/6 = 0.4167
+        # normalized = 2*0.4167 - 1 = -0.167 (slightly bearish, not extreme)
+        normalized = normalizer.normalize(50.0, "test_signal")
+
+        # Should be slightly bearish (below median), not extreme
+        assert -0.2 < normalized < 0.0
 
 
 class TestMultipleSignals:
