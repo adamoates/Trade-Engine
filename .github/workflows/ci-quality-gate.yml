@@ -8,10 +8,11 @@ name: CI - Quality Gate
 # - Catches bugs before they reach production
 # - Enforces consistent code style across team
 #
-# Performance Optimizations (3-5x speedup):
-# - Parallel test execution with pytest-xdist (-n auto)
-# - Skip slow tests in CI (-m "not slow")
-# - Target: 5-8 minutes vs 20-25 minutes before optimization
+# Performance Optimizations (2-3x speedup):
+# - Skip slow tests in CI (-m "not slow") - 4 real API integration tests
+# - pytest-xdist available for local parallel execution (`pytest -n auto`)
+# - Note: Parallel execution disabled in CI to ensure reliable coverage
+# - Target: 10-15 minutes vs 20-25 minutes (sequential with fewer tests)
 
 on:
   push:
@@ -95,17 +96,20 @@ jobs:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/mft_test
           TESTING: true
         run: |
-          echo "Running test suite with parallel execution..."
+          echo "Running test suite (skipping slow tests)..."
           if [ -d "tests" ] && [ "$(find tests -name 'test_*.py' -o -name '*_test.py' | wc -l)" -gt 0 ]; then
+            # Skip slow tests and run with coverage
+            # Note: -n auto removed to ensure reliable coverage reporting
+            # (pytest-xdist + pytest-cov have known compatibility issues)
             pytest tests/ \
               -m "not slow" \
-              -n auto \
               --cov=app \
+              --cov=tools \
               --cov-report=term-missing \
               --cov-report=xml \
               --cov-fail-under=60 \
               -v
-            echo "✅ Fast tests completed. Slow tests run separately."
+            echo "✅ Tests completed (slow tests run separately on schedule)."
           else
             echo "No tests found yet - this is expected in early phases"
             echo "⚠️  Tests will be required before Phase 2 completion"
