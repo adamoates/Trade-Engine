@@ -1,0 +1,109 @@
+{
+  "bids": [
+    {
+      "price": 122344.41,
+      "quantity": 0.0734,
+      "order_count": 3
+    },
+    {
+      "price": 122313.81,
+      "quantity": 0.0807,
+      "order_count": 3
+    },
+    {
+      "price": 122283.22,
+      "quantity": 0.0881,
+      "order_count": 3
+    },
+    {
+      "price": 122252.62,
+      "quantity": 0.0954,
+      "order_count": 3
+    },
+    {
+      "price": 122222.03,
+      "quantity": 0.1027,
+      "order_count": 3
+    },
+    {
+      "price": 122191.44,
+      "quantity": 0.1101,
+      "order_count": 3
+    },
+    {
+      "price": 122160.84,
+      "quantity": 0.1174,
+      "order_count": 3
+    },
+    {
+      "price": 122130.25,
+      "quantity": 0.1248,
+      "order_count": 3
+    },
+    {
+      "price": 122099.66,
+      "quantity": 0.1321,
+      "order_count": 3
+    },
+    {
+      "price": 122069.06,
+      "quantity": 0.1394,
+      "order_count": 3
+    }
+  ],
+  "asks": [
+    {
+      "price": 122405.59,
+      "quantity": 0.0734,
+      "order_count": 3
+    },
+    {
+      "price": 122436.19,
+      "quantity": 0.0807,
+      "order_count": 3
+    },
+    {
+      "price": 122466.78,
+      "quantity": 0.0881,
+      "order_count": 3
+    },
+    {
+      "price": 122497.38,
+      "quantity": 0.0954,
+      "order_count": 3
+    },
+    {
+      "price": 122527.97,
+      "quantity": 0.1027,
+      "order_count": 3
+    },
+    {
+      "price": 122558.56,
+      "quantity": 0.1101,
+      "order_count": 3
+    },
+    {
+      "price": 122589.16,
+      "quantity": 0.1174,
+      "order_count": 3
+    },
+    {
+      "price": 122619.75,
+      "quantity": 0.1248,
+      "order_count": 3
+    },
+    {
+      "price": 122650.34,
+      "quantity": 0.1321,
+      "order_count": 3
+    },
+    {
+      "price": 122680.94,
+      "quantity": 0.1394,
+      "order_count": 3
+    }
+  ],
+  "symbol": "BTC",
+  "timestamp": "2025-10-03T18:00:00Z",
+  "description": "Historical low liquidity from 2025-10-03"
+}

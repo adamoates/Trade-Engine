@@ -1,0 +1,109 @@
+{
+  "bids": [
+    {
+      "price": 113161.58,
+      "quantity": 0.4444,
+      "order_count": 3
+    },
+    {
+      "price": 113133.29,
+      "quantity": 0.4889,
+      "order_count": 3
+    },
+    {
+      "price": 113104.99,
+      "quantity": 0.5333,
+      "order_count": 3
+    },
+    {
+      "price": 113076.69,
+      "quantity": 0.5778,
+      "order_count": 3
+    },
+    {
+      "price": 113048.39,
+      "quantity": 0.6222,
+      "order_count": 3
+    },
+    {
+      "price": 113020.1,
+      "quantity": 0.6667,
+      "order_count": 3
+    },
+    {
+      "price": 112991.8,
+      "quantity": 0.7111,
+      "order_count": 3
+    },
+    {
+      "price": 112963.5,
+      "quantity": 0.7556,
+      "order_count": 3
+    },
+    {
+      "price": 112935.2,
+      "quantity": 0.8,
+      "order_count": 4
+    },
+    {
+      "price": 112906.91,
+      "quantity": 0.8444,
+      "order_count": 4
+    }
+  ],
+  "asks": [
+    {
+      "price": 113218.18,
+      "quantity": 0.8254,
+      "order_count": 4
+    },
+    {
+      "price": 113246.47,
+      "quantity": 0.9079,
+      "order_count": 4
+    },
+    {
+      "price": 113274.77,
+      "quantity": 0.9905,
+      "order_count": 4
+    },
+    {
+      "price": 113303.07,
+      "quantity": 1.073,
+      "order_count": 5
+    },
+    {
+      "price": 113331.37,
+      "quantity": 1.1556,
+      "order_count": 5
+    },
+    {
+      "price": 113359.66,
+      "quantity": 1.2381,
+      "order_count": 6
+    },
+    {
+      "price": 113387.96,
+      "quantity": 1.3206,
+      "order_count": 6
+    },
+    {
+      "price": 113416.26,
+      "quantity": 1.4032,
+      "order_count": 7
+    },
+    {
+      "price": 113444.56,
+      "quantity": 1.4857,
+      "order_count": 7
+    },
+    {
+      "price": 113472.85,
+      "quantity": 1.5683,
+      "order_count": 7
+    }
+  ],
+  "symbol": "BTC",
+  "timestamp": "2025-10-09T18:00:00Z",
+  "description": "Historical extreme fear from 2025-10-09"
+}
