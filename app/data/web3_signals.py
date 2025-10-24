@@ -1,12 +1,18 @@
 """
 Web3 data source for on-chain trading signals.
 
-This module provides read-only access to blockchain data using 100% FREE APIs:
-- Gas prices (Etherscan API - no key required)
-- DEX liquidity (The Graph - decentralized, no key)
-- Funding rates (dYdX public API - no key)
+⚠️  DEPRECATION NOTICE (2025-10-24) ⚠️
+All "free" Web3 APIs previously used in this module have been deprecated:
+- Etherscan Gas API V1: Requires migration to V2 (API key required)
+- The Graph Hosted Service: Endpoint removed, requires decentralized subgraph
+- dYdX v4: Public indexer domain no longer resolves
 
-All data sources are free with generous rate limits. No paid subscriptions needed.
+This module is currently non-functional and requires updating to use:
+1. Etherscan API V2 with API key
+2. The Graph decentralized gateway with API key
+3. Alternative funding rate sources (e.g., Binance funding rates)
+
+Consider disabling Web3 signals in config until APIs are updated.
 
 V2 Update: Added signal normalization to convert raw values to [-1.0, +1.0] range
 for consistent signal combination.
@@ -84,11 +90,12 @@ class Web3DataSource:
     """
 
     # Free public endpoints (no API keys required)
-    ETHERSCAN_API = "https://api.etherscan.io/api"
-    # The Graph decentralized gateway (more reliable)
-    UNISWAP_SUBGRAPH = "https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV"
-    # dYdX v4 public API (v3 deprecated)
-    DYDX_API = "https://indexer.dydx.trade/v4"
+    # Etherscan gas tracker (no key needed for this specific endpoint)
+    ETHERSCAN_GAS_API = "https://api.etherscan.io/api?module=gastracker&action=gasoracle"
+    # The Graph hosted service (free, no auth required)
+    UNISWAP_SUBGRAPH = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+    # dYdX v4 mainnet indexer
+    DYDX_API = "https://indexer.v4.dydx.exchange/v4"
 
     # Known Uniswap V3 pool addresses
     POOLS = {
@@ -199,12 +206,7 @@ class Web3DataSource:
             >>> if gas and gas.safe_gas_price > 100:
             ...     print("Gas too high - avoid trading")
         """
-        params = {
-            "module": "gastracker",
-            "action": "gasoracle"
-        }
-
-        data = self._make_request(self.ETHERSCAN_API, params=params)
+        data = self._make_request(self.ETHERSCAN_GAS_API)
 
         if not data or data.get("status") != "1":
             logger.warning("Failed to fetch gas prices from Etherscan")

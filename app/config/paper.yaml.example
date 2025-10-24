@@ -101,8 +101,10 @@ data:
     - coingecko
 
   # On-chain data sources (optional)
+  # ⚠️  NOTE: Web3 APIs deprecated as of 2025-10-24
+  # See app/data/web3_signals.py for details and alternatives
   web3_sources:
-    enabled: false
+    enabled: false  # Keep disabled until APIs are updated
     chains:
       - ethereum
       - polygon
