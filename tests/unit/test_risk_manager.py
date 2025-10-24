@@ -52,41 +52,75 @@ class TestRiskManagerInit:
 class TestKillSwitch:
     """Test kill switch functionality."""
 
-    def test_kill_switch_file_exists(self, tmp_path):
-        """Test kill switch triggers when file exists."""
+    def test_kill_switch_file_exists_default_path(self, tmp_path):
+        """Test kill switch triggers when default file exists."""
         config = {"risk": {}}
-        rm = RiskManager(config)
 
-        # Mock KILL_SWITCH_FILE_PATH to temp file
+        # Mock the default constant
         kill_file = tmp_path / "kill_switch.flag"
         kill_file.touch()
 
         with patch("app.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
+            rm = RiskManager(config)
             result = rm.check_kill_switch()
 
         assert result.passed is False
         assert "Kill switch file detected" in result.reason
+        assert str(kill_file) in result.reason
 
-    def test_kill_switch_config_halt(self):
-        """Test kill switch triggers from config halt flag."""
+    def test_kill_switch_file_exists_configured_path(self, tmp_path):
+        """Test kill switch uses configured file path."""
+        kill_file = tmp_path / "STOP_TRADING"
+        kill_file.touch()
+
+        config = {"risk": {"kill_switch_file": str(kill_file)}}
+        rm = RiskManager(config)
+
+        result = rm.check_kill_switch()
+
+        assert result.passed is False
+        assert "Kill switch file detected" in result.reason
+        assert str(kill_file) in result.reason
+
+    def test_kill_switch_config_risk_halt(self):
+        """Test kill switch triggers from risk.halt flag."""
         config = {"risk": {"halt": True}}
         rm = RiskManager(config)
 
         result = rm.check_kill_switch()
 
         assert result.passed is False
-        assert "Config halt=true" in result.reason
+        assert "risk.halt=true" in result.reason
+
+    def test_kill_switch_config_top_level_halt(self):
+        """Test kill switch triggers from top-level halt flag (backward compatibility)."""
+        config = {"halt": True, "risk": {}}
+        rm = RiskManager(config)
+
+        result = rm.check_kill_switch()
+
+        assert result.passed is False
+        assert "halt=true (top-level)" in result.reason
+
+    def test_kill_switch_priority_top_level_over_risk_level(self):
+        """Test top-level halt is checked before risk-level halt."""
+        config = {"halt": True, "risk": {"halt": False}}
+        rm = RiskManager(config)
+
+        result = rm.check_kill_switch()
+
+        assert result.passed is False
+        # Should report top-level, not risk-level
+        assert "top-level" in result.reason
 
     def test_kill_switch_not_active(self, tmp_path):
         """Test kill switch allows trading when not active."""
-        config = {"risk": {"halt": False}}
+        kill_file = tmp_path / "kill_switch.flag"  # File doesn't exist
+
+        config = {"risk": {"halt": False, "kill_switch_file": str(kill_file)}}
         rm = RiskManager(config)
 
-        # Mock KILL_SWITCH_FILE_PATH to non-existent file
-        kill_file = tmp_path / "kill_switch.flag"
-
-        with patch("app.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
-            result = rm.check_kill_switch()
+        result = rm.check_kill_switch()
 
         assert result.passed is True
 

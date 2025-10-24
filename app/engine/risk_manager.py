@@ -44,13 +44,15 @@ class RiskManager:
         Initialize risk manager.
 
         Args:
-            config: Risk configuration dict with keys:
+            config: Full configuration dict with 'risk' section containing:
                 - max_daily_loss_usd (float)
                 - max_trades_per_day (int)
                 - max_position_usd (float)
                 - trading_hours (dict with start/end keys)
-                - halt (bool)
+                - halt (bool) - can be at risk.halt or top-level halt
+                - kill_switch_file (str) - path to kill switch file
         """
+        self.full_config = config  # Store full config to check top-level halt
         self.config = config.get("risk", {})
 
         # Risk limits (convert to Decimal for precise financial calculations)
@@ -58,6 +60,9 @@ class RiskManager:
         self.max_trades_per_day = self.config.get("max_trades_per_day", DEFAULT_MAX_TRADES_PER_DAY)
         self.max_position_usd = Decimal(str(self.config.get("max_position_usd", DEFAULT_MAX_POSITION_USD)))
         self.trading_hours = self.config.get("trading_hours", {})
+
+        # Kill switch file path (configurable, falls back to constant)
+        self.kill_switch_file = self.config.get("kill_switch_file", KILL_SWITCH_FILE_PATH)
 
         # Tracking
         self.daily_trades = 0
@@ -76,25 +81,33 @@ class RiskManager:
         Check for kill switch activation.
 
         Checks:
-        1. File flag existence
-        2. Config halt flag
+        1. Configured kill switch file existence (risk.kill_switch_file)
+        2. Top-level halt flag (halt)
+        3. Risk-level halt flag (risk.halt)
 
         Returns:
             RiskCheckResult with passed=False if kill switch active
         """
-        # File flag
-        halt_flag = Path(KILL_SWITCH_FILE_PATH)
+        # Check configured kill switch file
+        halt_flag = Path(self.kill_switch_file)
         if halt_flag.exists():
             return RiskCheckResult(
                 passed=False,
-                reason=f"Kill switch file detected: {KILL_SWITCH_FILE_PATH}"
+                reason=f"Kill switch file detected: {self.kill_switch_file}"
             )
 
-        # Config flag
+        # Check top-level halt flag (backward compatibility)
+        if self.full_config.get("halt", False):
+            return RiskCheckResult(
+                passed=False,
+                reason="Config halt=true (top-level)"
+            )
+
+        # Check risk-level halt flag
         if self.config.get("halt", False):
             return RiskCheckResult(
                 passed=False,
-                reason="Config halt=true"
+                reason="Config risk.halt=true"
             )
 
         return RiskCheckResult(passed=True)
