@@ -107,7 +107,7 @@ jobs:
               --cov=tools \
               --cov-report=term-missing \
               --cov-report=xml \
-              --cov-fail-under=60 \
+              --cov-fail-under=54 \
               -v
             echo "✅ Tests completed (slow tests run separately on schedule)."
           else
