@@ -233,7 +233,8 @@ class TestCombinedSignal:
 
     def test_combined_signal_all_bullish(self):
         """Test combined signal with all bullish indicators."""
-        source = Web3DataSource()
+        # Use legacy mode (normalize=False) for deterministic testing
+        source = Web3DataSource(normalize=False)
 
         # Mock all methods to return bullish data
         source.get_gas_prices = Mock(return_value=GasData(
@@ -267,7 +268,8 @@ class TestCombinedSignal:
 
     def test_combined_signal_all_bearish(self):
         """Test combined signal with all bearish indicators."""
-        source = Web3DataSource()
+        # Use legacy mode (normalize=False) for deterministic testing
+        source = Web3DataSource(normalize=False)
 
         # Mock all methods to return bearish data
         source.get_gas_prices = Mock(return_value=GasData(

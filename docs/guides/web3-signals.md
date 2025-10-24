@@ -3,12 +3,15 @@
 **Last Updated**: 2025-10-24
 **Category**: guides
 **Status**: active
+**Version**: 2.0 (Added signal normalization)
 
 ---
 
 ## Overview
 
 This guide shows how to use **free on-chain data** from Web3 sources to enhance your trading signals. All data is read-only (no transactions) and uses 100% free public APIs with no authentication required.
+
+**V2 Update**: Now includes signal normalization to convert raw values (gas prices, funding rates, liquidity) to a common [-1.0, +1.0] scale for consistent signal combination.
 
 ## Why Use On-Chain Data?
 
@@ -54,16 +57,33 @@ from app.data.web3_signals import Web3DataSource, get_web3_signal
 ### Step 2: Get Combined Signal (Easiest)
 
 ```python
-# Quick convenience function
-signal = get_web3_signal()
+# V2: With normalization (default, recommended)
+source = Web3DataSource(normalize=True)
+signal = source.get_combined_signal()
 
 print(f"Signal: {signal.signal}")  # BUY, SELL, or NEUTRAL
-print(f"Score: {signal.score}")    # -3 to +3
+print(f"Score: {signal.score:.2f}")    # -3.0 to +3.0 (float in V2)
 print(f"Confidence: {signal.confidence:.1%}")  # Based on data availability
+
+# V2: Access normalized signal components
+print(f"Normalized gas: {signal.normalized_gas:.2f}")  # -1.0 to +1.0
+print(f"Normalized funding: {signal.normalized_funding:.2f}")  # -1.0 to +1.0
+print(f"Normalized liquidity: {signal.normalized_liquidity:.2f}")  # -1.0 to +1.0
 
 # Use in trading logic
 if signal.signal == "BUY" and signal.confidence > 0.7:
     print("Strong bullish on-chain signal")
+```
+
+#### Legacy Mode (V1 - Threshold-Based)
+
+```python
+# Disable normalization for V1 behavior (simple thresholds)
+source = Web3DataSource(normalize=False)
+signal = source.get_combined_signal()
+
+# V1: Score is integer -3 to +3
+print(f"Score: {signal.score}")  # Integer: -3, -2, -1, 0, 1, 2, or 3
 ```
 
 ### Step 3: Access Individual Signals
@@ -194,9 +214,124 @@ else:
 
 ---
 
+## Signal Normalization (V2)
+
+### What is Normalization?
+
+Raw on-chain signals have different scales:
+- Gas prices: 20-150 gwei (unbounded)
+- Funding rates: -0.05 to +0.05 (small decimals)
+- Liquidity: $100K to $50M (huge range)
+
+**Problem**: Can't directly add/compare signals on different scales.
+
+**Solution**: Normalize all signals to [-1.0, +1.0] range for consistent combination.
+
+### Normalization Methods
+
+#### Z-Score Normalization (Default)
+
+Converts values based on historical mean and standard deviation:
+
+```python
+source = Web3DataSource(normalize=True, normalization_method="zscore")
+```
+
+**Formula**:
+1. Calculate z-score: `z = (value - mean) / std`
+2. Apply sigmoid squashing: `normalized = 2 / (1 + e^(-z)) - 1`
+
+**Benefits**:
+- Captures deviations from normal behavior
+- Smooth saturation at extremes (no hard cutoffs)
+- Adapts to changing market conditions
+
+**Example**:
+```python
+# Gas price history: mean=30 gwei, std=10 gwei
+normalize(30)   # → 0.0 (at mean)
+normalize(40)   # → +0.76 (1 std above mean)
+normalize(50)   # → +0.96 (2 std above mean)
+normalize(100)  # → +1.0 (extreme, saturated)
+```
+
+#### Percentile Ranking
+
+Maps value to its percentile within historical distribution:
+
+```python
+source = Web3DataSource(normalize=True, normalization_method="percentile")
+```
+
+**Formula**:
+- Percentile = rank(value) / total_count
+- Normalized = 2 * percentile - 1
+
+**Benefits**:
+- Robust to outliers
+- Uniform distribution
+- Easier to interpret (50th percentile = 0.0)
+
+**Example**:
+```python
+# Gas price history: [20, 25, 30, 35, 40]
+normalize(30)   # → 0.0 (50th percentile - median)
+normalize(40)   # → +1.0 (100th percentile - maximum)
+normalize(20)   # → -1.0 (0th percentile - minimum)
+```
+
+### How Normalization Builds History
+
+**Important**: Normalization quality improves over time as history accumulates.
+
+```python
+source = Web3DataSource(normalize=True)
+
+# First call: No history → returns 0.0 (neutral)
+signal1 = source.get_combined_signal()
+print(signal1.normalized_gas)  # 0.0
+
+# After 10 calls: Some history → rough normalization
+for _ in range(10):
+    source.get_combined_signal()
+
+# After 100+ calls: Good history → accurate normalization
+for _ in range(100):
+    source.get_combined_signal()
+
+signal_final = source.get_combined_signal()
+print(signal_final.normalized_gas)  # -0.85 (accurate)
+```
+
+**Recommendation**: Run for 24-48 hours to build 30-day history before live trading.
+
+---
+
 ## Signal Scoring System
 
-The `get_combined_signal()` function combines all sources into a single score:
+### V2: Normalized Scoring (Recommended)
+
+With `normalize=True` (default), signals are combined using normalized values:
+
+```python
+source = Web3DataSource(normalize=True)
+signal = source.get_combined_signal()
+
+# Each component contributes -1.0 to +1.0
+# Total score = sum of normalized signals (-3.0 to +3.0)
+score = normalized_gas + normalized_funding + normalized_liquidity
+```
+
+**Signal Interpretation**:
+- `normalized_gas = -0.8`: Gas is 0.8 std above mean → bearish (avoid volatility)
+- `normalized_funding = +0.6`: Funding is 0.6 std below mean → bullish (shorts overleveraged)
+- `normalized_liquidity = -0.3`: Liquidity slightly below mean → mildly bearish
+
+**Total score**: -0.8 + 0.6 - 0.3 = -0.5 → SELL signal
+
+### V1: Threshold Scoring (Legacy)
+
+The `get_combined_signal()` function combines all sources into a single score (legacy mode with `normalize=False`):
 
 ### Scoring Rules
 

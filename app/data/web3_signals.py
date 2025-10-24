@@ -7,14 +7,18 @@ This module provides read-only access to blockchain data using 100% FREE APIs:
 - Funding rates (dYdX public API - no key)
 
 All data sources are free with generous rate limits. No paid subscriptions needed.
+
+V2 Update: Added signal normalization to convert raw values to [-1.0, +1.0] range
+for consistent signal combination.
 """
 
 import requests
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Literal
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from loguru import logger
+from app.data.signal_normalizer import SignalNormalizer
 
 
 @dataclass
@@ -48,14 +52,23 @@ class FundingRateData:
 
 @dataclass
 class Web3Signal:
-    """Combined Web3 signal score."""
-    score: int  # -3 to +3 (negative = bearish, positive = bullish)
+    """
+    Combined Web3 signal score.
+
+    V2: Now includes normalized signal values in [-1.0, +1.0] range for
+    consistent signal combination with L2 order book imbalance.
+    """
+    score: float  # -3.0 to +3.0 (sum of normalized signals)
     gas_data: Optional[GasData]
     liquidity_data: Optional[LiquidityData]
     funding_data: Optional[FundingRateData]
     signal: str  # "BUY", "SELL", "NEUTRAL"
     confidence: float  # 0.0 to 1.0
     timestamp: datetime
+    # V2: Normalized signal values
+    normalized_gas: Optional[float] = None  # -1.0 to +1.0
+    normalized_liquidity: Optional[float] = None  # -1.0 to +1.0
+    normalized_funding: Optional[float] = None  # -1.0 to +1.0
 
 
 class Web3DataSource:
@@ -87,7 +100,9 @@ class Web3DataSource:
     def __init__(
         self,
         timeout: int = 5,
-        retry_attempts: int = 2
+        retry_attempts: int = 2,
+        normalize: bool = True,
+        normalization_method: Literal["zscore", "percentile"] = "zscore"
     ):
         """
         Initialize Web3 data source.
@@ -95,14 +110,26 @@ class Web3DataSource:
         Args:
             timeout: Request timeout in seconds (default: 5)
             retry_attempts: Number of retry attempts on failure (default: 2)
+            normalize: Enable signal normalization (default: True)
+            normalization_method: "zscore" or "percentile" (default: "zscore")
         """
         self.timeout = timeout
         self.retry_attempts = retry_attempts
+        self.normalize = normalize
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "MFT-Bot/1.0",
             "Accept": "application/json"
         })
+
+        # Initialize signal normalizer if enabled
+        if self.normalize:
+            self.normalizer = SignalNormalizer(
+                method=normalization_method,
+                lookback_days=30
+            )
+        else:
+            self.normalizer = None
 
     def _make_request(
         self,
@@ -314,10 +341,19 @@ class Web3DataSource:
         """
         Combine all Web3 signals into a single trading signal.
 
-        Signal scoring:
-        - Gas price: -1 if extreme (>100 gwei) → Avoid trading during chaos
+        V2: Now uses normalized signal values in [-1.0, +1.0] range for
+        consistent signal combination. Normalization builds up history
+        over time for better signal quality.
+
+        Signal scoring (with normalization enabled):
+        - Gas price: Normalized to [-1.0, +1.0] (high gas → negative)
+        - Funding rate: Normalized to [-1.0, +1.0] (positive → negative)
+        - Liquidity: Normalized to [-1.0, +1.0] (low volume → negative)
+
+        Signal scoring (legacy mode, normalize=False):
+        - Gas price: -1 if extreme (>100 gwei)
         - Funding rate: +1 if negative (bullish), -1 if positive (bearish)
-        - Liquidity: -1 if low volume (<$1M) → Avoid low liquidity
+        - Liquidity: -1 if low volume (<$1M)
 
         Final signal:
         - score > 0: BUY (bullish signals dominant)
@@ -332,12 +368,12 @@ class Web3DataSource:
             Web3Signal with combined score and recommendation
 
         Example:
-            >>> source = Web3DataSource()
+            >>> source = Web3DataSource(normalize=True)
             >>> signal = source.get_combined_signal()
-            >>> print(f"Signal: {signal.signal} (score: {signal.score})")
-            >>> print(f"Confidence: {signal.confidence:.1%}")
+            >>> print(f"Signal: {signal.signal} (score: {signal.score:.2f})")
+            >>> print(f"Normalized gas: {signal.normalized_gas:.2f}")
         """
-        score = 0
+        score = 0.0
         signals_available = 0
 
         # Fetch all data sources
@@ -345,29 +381,70 @@ class Web3DataSource:
         liquidity = self.get_dex_liquidity(pool)
         funding = self.get_funding_rate(funding_symbol)
 
-        # Score: Gas prices
-        if gas:
-            signals_available += 1
-            if gas.propose_gas_price > 100:
-                score -= 1  # Extreme gas = volatility, avoid trading
-                logger.info(f"High gas detected: {gas.propose_gas_price} gwei (bearish)")
+        # Track normalized values
+        normalized_gas = None
+        normalized_liquidity = None
+        normalized_funding = None
 
-        # Score: Funding rate
-        if funding:
-            signals_available += 1
-            if funding.funding_rate < -0.01:  # -1% or more
-                score += 1  # Shorts paying longs = bullish
-                logger.info(f"Negative funding: {funding.funding_rate:.4f} (bullish)")
-            elif funding.funding_rate > 0.01:  # +1% or more
-                score -= 1  # Longs paying shorts = bearish
-                logger.info(f"Positive funding: {funding.funding_rate:.4f} (bearish)")
+        if self.normalize and self.normalizer:
+            # === V2: Normalized signal scoring ===
+            # All signals normalized to [-1.0, +1.0] range
 
-        # Score: Liquidity
-        if liquidity:
-            signals_available += 1
-            if liquidity.volume_24h_usd < 1_000_000:
-                score -= 1  # Low liquidity = risky
-                logger.info(f"Low liquidity: ${liquidity.volume_24h_usd:,.0f} (bearish)")
+            # Score: Gas prices (inverted - high gas is bearish)
+            if gas:
+                signals_available += 1
+                normalized_gas = -self.normalizer.normalize(
+                    gas.propose_gas_price,
+                    "gas_price"
+                )
+                score += normalized_gas
+                logger.info(f"Gas: {gas.propose_gas_price:.0f} gwei → normalized: {normalized_gas:.3f}")
+
+            # Score: Funding rate (inverted - positive funding is bearish)
+            if funding:
+                signals_available += 1
+                normalized_funding = -self.normalizer.normalize(
+                    funding.funding_rate,
+                    "funding_rate"
+                )
+                score += normalized_funding
+                logger.info(f"Funding: {funding.funding_rate:.4f} → normalized: {normalized_funding:.3f}")
+
+            # Score: Liquidity (inverted - low liquidity is bearish)
+            if liquidity:
+                signals_available += 1
+                normalized_liquidity = -self.normalizer.normalize(
+                    1_000_000 - liquidity.volume_24h_usd,  # Invert so low volume = high value
+                    "liquidity_deficit"
+                )
+                score += normalized_liquidity
+                logger.info(f"Liquidity: ${liquidity.volume_24h_usd:,.0f} → normalized: {normalized_liquidity:.3f}")
+
+        else:
+            # === Legacy: Threshold-based scoring ===
+            # Score: Gas prices
+            if gas:
+                signals_available += 1
+                if gas.propose_gas_price > 100:
+                    score -= 1  # Extreme gas = volatility, avoid trading
+                    logger.info(f"High gas detected: {gas.propose_gas_price} gwei (bearish)")
+
+            # Score: Funding rate
+            if funding:
+                signals_available += 1
+                if funding.funding_rate < -0.01:  # -1% or more
+                    score += 1  # Shorts paying longs = bullish
+                    logger.info(f"Negative funding: {funding.funding_rate:.4f} (bullish)")
+                elif funding.funding_rate > 0.01:  # +1% or more
+                    score -= 1  # Longs paying shorts = bearish
+                    logger.info(f"Positive funding: {funding.funding_rate:.4f} (bearish)")
+
+            # Score: Liquidity
+            if liquidity:
+                signals_available += 1
+                if liquidity.volume_24h_usd < 1_000_000:
+                    score -= 1  # Low liquidity = risky
+                    logger.info(f"Low liquidity: ${liquidity.volume_24h_usd:,.0f} (bearish)")
 
         # Determine signal
         if score > 0:
@@ -387,7 +464,10 @@ class Web3DataSource:
             funding_data=funding,
             signal=signal,
             confidence=confidence,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(timezone.utc),
+            normalized_gas=normalized_gas,
+            normalized_liquidity=normalized_liquidity,
+            normalized_funding=normalized_funding
         )
 
     def is_high_volatility(self) -> bool:
