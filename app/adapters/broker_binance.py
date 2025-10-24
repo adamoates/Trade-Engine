@@ -3,12 +3,15 @@ Binance Futures broker adapter (paper & live).
 
 Implements Broker interface for Binance Futures (USDⓈ-M perpetual contracts).
 Supports both testnet (paper trading) and production.
+
+CRITICAL: All price/quantity conversions use Decimal (NON-NEGOTIABLE per CLAUDE.md).
 """
 
 import os
 import time
 import hmac
 import hashlib
+from decimal import Decimal
 from typing import Dict
 import requests
 from loguru import logger
@@ -143,7 +146,7 @@ class BinanceFuturesBroker(Broker):
 
     # ========== Broker Interface Implementation ==========
 
-    def buy(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def buy(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Place buy order (long entry or short close).
 
@@ -153,12 +156,12 @@ class BinanceFuturesBroker(Broker):
         Returns:
             order_id: Binance order ID (as string)
         """
-        # Place market buy
+        # Place market buy (convert Decimal to string for API)
         params = {
             "symbol": symbol,
             "side": "BUY",
             "type": "MARKET",
-            "quantity": qty
+            "quantity": str(qty)
         }
 
         result = self._request("POST", "/fapi/v1/order", signed=True, **params)
@@ -171,7 +174,7 @@ class BinanceFuturesBroker(Broker):
 
         return order_id
 
-    def sell(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def sell(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Place sell order (short entry or long close).
 
@@ -181,7 +184,7 @@ class BinanceFuturesBroker(Broker):
             "symbol": symbol,
             "side": "SELL",
             "type": "MARKET",
-            "quantity": qty
+            "quantity": str(qty)
         }
 
         result = self._request("POST", "/fapi/v1/order", signed=True, **params)
@@ -226,27 +229,27 @@ class BinanceFuturesBroker(Broker):
         positions = {}
         for pos_data in result:
             symbol = pos_data["symbol"]
-            qty = abs(float(pos_data["positionAmt"]))
+            qty = abs(Decimal(str(pos_data["positionAmt"])))
 
             # Skip if no position
             if qty == 0:
                 continue
 
-            entry_price = float(pos_data["entryPrice"])
-            mark_price = float(pos_data["markPrice"])
-            unrealized_pnl = float(pos_data["unRealizedProfit"])
+            entry_price = Decimal(str(pos_data["entryPrice"]))
+            mark_price = Decimal(str(pos_data["markPrice"]))
+            unrealized_pnl = Decimal(str(pos_data["unRealizedProfit"]))
 
             # Determine side
-            side = "long" if float(pos_data["positionAmt"]) > 0 else "short"
+            side = "long" if Decimal(str(pos_data["positionAmt"])) > 0 else "short"
 
             # Calculate PnL %
             if entry_price > 0:
                 if side == "long":
-                    pnl_pct = ((mark_price - entry_price) / entry_price) * 100
+                    pnl_pct = ((mark_price - entry_price) / entry_price) * Decimal("100")
                 else:
-                    pnl_pct = ((entry_price - mark_price) / entry_price) * 100
+                    pnl_pct = ((entry_price - mark_price) / entry_price) * Decimal("100")
             else:
-                pnl_pct = 0.0
+                pnl_pct = Decimal("0")
 
             positions[symbol] = Position(
                 symbol=symbol,
@@ -260,7 +263,7 @@ class BinanceFuturesBroker(Broker):
 
         return positions
 
-    def balance(self) -> float:
+    def balance(self) -> Decimal:
         """
         Get available USDT balance.
 
@@ -271,13 +274,13 @@ class BinanceFuturesBroker(Broker):
 
         for asset in result:
             if asset["asset"] == "USDT":
-                return float(asset["availableBalance"])
+                return Decimal(str(asset["availableBalance"]))
 
-        return 0.0
+        return Decimal("0")
 
     # ========== Helper Methods ==========
 
-    def get_ticker_price(self, symbol: str) -> float:
+    def get_ticker_price(self, symbol: str) -> Decimal:
         """
         Get current mark price.
 
@@ -288,7 +291,7 @@ class BinanceFuturesBroker(Broker):
             Current mark price
         """
         result = self._request("GET", "/fapi/v1/premiumIndex", symbol=symbol)
-        return float(result["markPrice"])
+        return Decimal(str(result["markPrice"]))
 
     def cancel_all_orders(self, symbol: str):
         """

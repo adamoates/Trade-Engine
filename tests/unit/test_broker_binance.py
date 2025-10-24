@@ -3,6 +3,7 @@ import os
 import hmac
 import hashlib
 import pytest
+from decimal import Decimal
 from unittest.mock import Mock, patch, MagicMock
 from app.adapters.broker_binance import BinanceFuturesBroker, BinanceError
 
@@ -171,7 +172,7 @@ class TestBrokerOrderOperations:
             broker._request = Mock(return_value={"orderId": 123456789})
 
             # ACT
-            order_id = broker.buy(symbol="BTCUSDT", qty=0.001)
+            order_id = broker.buy(symbol="BTCUSDT", qty=Decimal("0.001"))
 
             # ASSERT
             assert order_id == "123456789"
@@ -185,7 +186,7 @@ class TestBrokerOrderOperations:
             assert call_args[1]["symbol"] == "BTCUSDT"
             assert call_args[1]["side"] == "BUY"
             assert call_args[1]["type"] == "MARKET"
-            assert call_args[1]["quantity"] == 0.001
+            assert call_args[1]["quantity"] == "0.001"  # Now sent as string to API
 
     def test_sell_success(self):
         """Test successful sell order placement."""
@@ -198,7 +199,7 @@ class TestBrokerOrderOperations:
             broker._request = Mock(return_value={"orderId": 987654321})
 
             # ACT
-            order_id = broker.sell(symbol="ETHUSDT", qty=0.01)
+            order_id = broker.sell(symbol="ETHUSDT", qty=Decimal("0.01"))
 
             # ASSERT
             assert order_id == "987654321"
@@ -208,7 +209,7 @@ class TestBrokerOrderOperations:
             assert call_args[0][0] == "POST"
             assert call_args[1]["symbol"] == "ETHUSDT"
             assert call_args[1]["side"] == "SELL"
-            assert call_args[1]["quantity"] == 0.01
+            assert call_args[1]["quantity"] == "0.01"  # Now sent as string to API
 
     def test_positions_with_open_long(self):
         """Test positions() returns long position correctly."""
@@ -238,10 +239,10 @@ class TestBrokerOrderOperations:
             pos = positions["BTCUSDT"]
             assert pos.symbol == "BTCUSDT"
             assert pos.side == "long"
-            assert pos.qty == 0.001
-            assert pos.entry_price == 50000.0
-            assert pos.current_price == 51000.0
-            assert pos.pnl == 1.0
+            assert pos.qty == Decimal("0.001")  # Now Decimal
+            assert pos.entry_price == Decimal("50000.0")  # Now Decimal
+            assert pos.current_price == Decimal("51000.0")  # Now Decimal
+            assert pos.pnl == Decimal("1.0")  # Now Decimal
             assert pos.pnl_pct > 0  # Profit
 
     def test_positions_with_open_short(self):
@@ -271,7 +272,7 @@ class TestBrokerOrderOperations:
             assert "ETHUSDT" in positions
             pos = positions["ETHUSDT"]
             assert pos.side == "short"
-            assert pos.qty == 0.01  # Absolute value
+            assert pos.qty == Decimal("0.01")  # Absolute value, now Decimal
 
     def test_positions_empty_when_no_positions(self):
         """Test positions() returns empty dict when no positions."""
