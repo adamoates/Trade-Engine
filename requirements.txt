@@ -18,6 +18,10 @@ requests>=2.31.0  # HTTP requests for Binance API (used by broker_binance.py)
 pandas>=2.2.0  # Updated for Python 3.13 compatibility
 numpy>=1.26.0  # Updated for Python 3.13 compatibility
 
+# Multi-source data adapters (added for data quality / cross-validation)
+yfinance>=0.2.40  # Yahoo Finance data (stocks, ETFs, indices, crypto)
+# Note: CoinGecko uses requests library (already included above)
+
 # Configuration management
 python-dotenv==1.0.0
 pyyaml>=6.0  # YAML config file parsing (used by live trading configs)
