@@ -62,3 +62,7 @@ secrets/
 *.pem
 *.key
 credentials.json
+
+# Live trading config (contains real API keys, positions, etc.)
+app/config/live.yaml
+config/live.yaml

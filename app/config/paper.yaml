@@ -1,0 +1,61 @@
+# MFT Paper Trading Configuration
+# Binance Futures Testnet
+
+mode: paper
+
+# Binance Futures Testnet
+binance:
+  testnet: true
+  # API credentials from environment variables:
+  #   BINANCE_TESTNET_API_KEY
+  #   BINANCE_TESTNET_API_SECRET
+
+# Trading symbols
+symbols:
+  - BTCUSDT
+
+# Timeframe (must match data feed)
+timeframe: 5m
+
+# Strategy configuration
+strategy:
+  name: trending_v3
+  params:
+    # TP/SL (ATR multiples)
+    tp_atr: 1.25        # Take profit: 1.25× ATR
+    sl_atr: 0.9         # Stop loss: 0.9× ATR
+
+    # Entry filters
+    min_atr_pct: 0.0015      # Min ATR: 0.15%
+    regime_threshold: 0.65   # Min regime confidence
+    cooldown_bars: 3         # Bars between trades
+
+    # Fee floor
+    fee_pct: 0.0004          # 0.04% (futures round-trip)
+    fee_floor_multiple: 2.5  # TP must be >= 2.5× fees
+
+# Risk management
+risk:
+  # Position limits
+  max_position_usd: 100        # Max notional per position
+  max_total_exposure_usd: 200  # Max total exposure
+
+  # Daily limits
+  max_daily_loss_usd: 20       # Kill switch trigger
+  max_trades_per_day: 10       # Throttle
+
+  # Trading hours (UTC)
+  trading_hours:
+    start: "00:00"
+    end: "23:59"
+
+# Cost assumptions (for strategy)
+costs:
+  fee_bps: 4           # Futures: 0.04% (maker + taker)
+  spread_bps: 2        # Bid-ask spread
+  slippage_bps: 1      # Market impact
+
+# Logging
+logging:
+  level: INFO
+  audit_log: true      # Enable audit log (JSON lines)

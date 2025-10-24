@@ -1,0 +1,65 @@
+# MFT Live Trading Configuration Template
+# ⚠️ REAL MONEY - USE WITH EXTREME CAUTION ⚠️
+#
+# Copy to live.yaml and set your own values
+# NEVER commit live.yaml to git (already in .gitignore)
+
+mode: live
+
+# Binance Futures (LIVE - REAL MONEY!)
+binance:
+  testnet: false          # ⚠️ FALSE = LIVE TRADING
+  # API credentials from environment variables:
+  #   BINANCE_API_KEY
+  #   BINANCE_API_SECRET
+
+# Trading symbols
+symbols:
+  - BTCUSDT
+
+# Timeframe (must match data feed)
+timeframe: 5m
+
+# Strategy configuration
+strategy:
+  name: trending_v3
+  params:
+    tp_atr: 1.25
+    sl_atr: 0.9
+    min_atr_pct: 0.0015
+    regime_threshold: 0.65
+    cooldown_bars: 3
+    fee_pct: 0.0004
+    fee_floor_multiple: 2.5
+
+# Risk management (START CONSERVATIVE!)
+risk:
+  # Position limits (START SMALL!)
+  max_position_usd: 100          # Tiny positions initially
+  max_total_exposure_usd: 200    # Max total exposure
+
+  # Daily limits (STRICT!)
+  max_daily_loss_usd: 20         # Kill switch at $20 loss
+  max_trades_per_day: 10         # Throttle
+
+  # Trading hours (UTC)
+  # Recommend limited hours initially for monitoring
+  trading_hours:
+    start: "14:00"    # Example: Trade only during your active hours
+    end: "22:00"
+
+# Cost assumptions
+costs:
+  fee_bps: 4
+  spread_bps: 2
+  slippage_bps: 1
+
+# Logging
+logging:
+  level: INFO
+  audit_log: true
+
+# Kill switch
+# To halt: touch /tmp/mft_halt.flag
+# Or set halt: true here and restart
+halt: false

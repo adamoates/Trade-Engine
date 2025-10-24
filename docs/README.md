@@ -11,9 +11,13 @@ docs/
 ├── guides/                # Comprehensive reference guides
 │   ├── README.md          # Guide directory index
 │   ├── ci-cd-setup.md     # Quick-start CI/CD setup
-│   ├── github-actions-guide.md  # Complete GitHub Actions reference
+│   ├── data-pipeline-guide.md      # Complete data pipeline workflows
+│   ├── data-validation-guide.md    # Data quality and cleaning
+│   ├── development-workflow.md     # Daily development practices
+│   ├── github-actions-guide.md     # Complete GitHub Actions reference
+│   ├── pipeline-one-liners.md      # Quick copy-paste commands
 │   ├── project-setup-checklist.md  # Environment setup checklist
-│   └── development-workflow.md  # Daily development practices
+│   └── python-tool-structure.md    # Python packaging and tool design
 ```
 
 ## Quick Start
@@ -65,6 +69,21 @@ Quick-start guide for GitHub Actions setup
 - Branch protection setup
 - Troubleshooting common issues
 
+### 📊 **data-pipeline-guide.md**
+Complete data pipeline from fetch to backtest
+- Quick start with Makefile targets
+- Complete workflows (fetch → validate → detect → backtest)
+- Piped workflows for speed
+- Troubleshooting and performance benchmarks
+
+### 🧹 **data-validation-guide.md**
+Production-grade OHLCV data validation and cleaning
+- Why data validation matters (found 13% corrupt bars)
+- Validation checks (gaps, duplicates, zero-volume)
+- Cleaning options (drop, ffill, nan)
+- Cost modeling for backtests
+- Quality reporting and best practices
+
 ### 📦 **github-actions-guide.md**
 Complete GitHub Actions reference
 - Workflow architecture explanation
@@ -73,6 +92,14 @@ Complete GitHub Actions reference
 - Advanced configuration options
 - Comprehensive troubleshooting
 
+### ⚡ **pipeline-one-liners.md**
+Quick copy-paste commands for data pipeline workflows
+- Makefile shortcuts (make full, make pipe)
+- Pure Python one-liners (no Makefile required)
+- Complete pipelines (fetch → validate → detect → backtest)
+- Binance.US domain override examples
+- Custom cost assumption examples
+
 ### 📋 **project-setup-checklist.md**
 Complete environment setup from scratch
 - Prerequisites and software installation
@@ -80,6 +107,14 @@ Complete environment setup from scratch
 - Local development environment
 - VPS and exchange setup
 - First feature verification
+
+### 🐍 **python-tool-structure.md**
+Understanding Python tool structure and package design
+- Current architecture analysis (script-based tools)
+- Python tool structure patterns (script vs library vs framework)
+- When to refactor to library + CLI
+- Industry examples and best practices
+- Proposed evolution path for MFT project
 
 ### 🔧 **development-workflow.md**
 Daily development practices and workflows
