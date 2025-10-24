@@ -13,24 +13,14 @@ Usage:
 """
 
 import sys
-import time
-import json
 from pathlib import Path
-from datetime import datetime
 from typing import Dict, Any
 from loguru import logger
 
-from app.engine.types import DataFeed, Broker, Strategy, Bar, Signal, Position
-
-
-class RiskViolation(Exception):
-    """Risk limit exceeded."""
-    pass
-
-
-class KillSwitchActivated(Exception):
-    """Kill switch triggered."""
-    pass
+from app.constants import EXIT_SUCCESS, EXIT_FAILURE, EXIT_SIGINT
+from app.engine.types import DataFeed, Broker, Strategy, Bar
+from app.engine.risk_manager import RiskManager
+from app.engine.audit_logger import AuditLogger
 
 
 class LiveRunner:
@@ -38,6 +28,11 @@ class LiveRunner:
     Bar-close live trading engine.
 
     Runs strategy on live bar feed with risk controls.
+    Follows Single Responsibility Principle - delegates to:
+    - RiskManager for risk checks
+    - AuditLogger for compliance logging
+    - Strategy for signal generation
+    - Broker for order execution
     """
 
     def __init__(
@@ -61,14 +56,9 @@ class LiveRunner:
         self.broker = broker
         self.config = config
 
-        # Risk tracking
-        self.daily_trades = 0
-        self.daily_pnl = 0.0
-        self.last_trade_time = None
-
-        # Audit log
-        self.audit_log_path = Path(f"logs/audit_{self._today()}.jsonl")
-        self.audit_log_path.parent.mkdir(parents=True, exist_ok=True)
+        # Delegate responsibilities
+        self.risk_manager = RiskManager(config)
+        self.audit_logger = AuditLogger()
 
         logger.info(f"LiveRunner initialized | Mode: {config.get('mode', 'unknown')}")
         logger.info(f"Symbols: {config.get('symbols', [])} | Timeframe: {config.get('timeframe', '?')}")
@@ -93,17 +83,12 @@ class LiveRunner:
         except KeyboardInterrupt:
             logger.warning("⚠️ Interrupted by user (Ctrl+C)")
             self._shutdown()
-            sys.exit(130)  # Standard SIGINT exit code
-
-        except KillSwitchActivated as e:
-            logger.critical(f"🛑 KILL SWITCH: {e}")
-            self._emergency_shutdown()
-            sys.exit(1)
+            sys.exit(EXIT_SIGINT)
 
         except Exception as e:
             logger.exception(f"❌ Unexpected error: {e}")
             self._emergency_shutdown()
-            sys.exit(1)
+            sys.exit(EXIT_FAILURE)
 
     def _process_bar(self, bar: Bar):
         """
@@ -112,30 +97,32 @@ class LiveRunner:
         Args:
             bar: Completed, validated bar
         """
-        logger.info(f"📊 {bar}")
+        logger.debug(f"Bar received: {bar}")
+        self.audit_logger.log_bar_received(bar)
 
-        # Log bar
-        self._log("bar_received", bar=self._bar_to_dict(bar))
-
-        # Check kill switch
-        self._check_kill_switch()
+        # Check kill switch before processing
+        kill_check = self.risk_manager.check_kill_switch()
+        if not kill_check.passed:
+            logger.critical(f"🛑 KILL SWITCH: {kill_check.reason}")
+            self._emergency_shutdown()
+            sys.exit(EXIT_FAILURE)
 
         # Skip bars with quality issues
         if bar.zero_vol_flag:
-            logger.warning(f"⚠️ Skipping zero-volume bar: {bar.datetime}")
-            self._log("bar_skipped", reason="zero_volume", bar=self._bar_to_dict(bar))
+            logger.warning(f"Skipping zero-volume bar: {bar.datetime}")
+            self.audit_logger.log_bar_skipped(bar, "zero_volume")
             return
 
         if bar.gap_flag:
-            logger.warning(f"⚠️ Gap detected in bar: {bar.datetime}")
-            self._log("bar_warning", reason="gap_detected", bar=self._bar_to_dict(bar))
+            logger.warning(f"Gap detected in bar: {bar.datetime}")
+            self.audit_logger.log_bar_warning(bar, "gap_detected")
 
         # Update strategy state
         try:
             signals = self.strategy.on_bar(bar)
         except Exception as e:
-            logger.exception(f"❌ Strategy error: {e}")
-            self._log("strategy_error", error=str(e), bar=self._bar_to_dict(bar))
+            logger.exception(f"Strategy error: {e}")
+            self.audit_logger.log_strategy_error(str(e), bar)
             return
 
         # No signals, done
@@ -146,34 +133,27 @@ class LiveRunner:
 
         # Execute each signal (with risk checks)
         for signal in signals:
-            try:
-                self._execute_signal(signal, bar)
-            except RiskViolation as e:
-                logger.warning(f"⚠️ Risk block: {e}")
-                self._log("risk_block", signal=self._signal_to_dict(signal), reason=str(e))
-            except Exception as e:
-                logger.exception(f"❌ Execution error: {e}")
-                self._log("execution_error", signal=self._signal_to_dict(signal), error=str(e))
+            self._execute_signal(signal, bar)
 
-    def _execute_signal(self, signal: Signal, bar: Bar):
+    def _execute_signal(self, signal, bar: Bar):
         """
         Execute signal with risk checks.
 
         Args:
             signal: Signal from strategy
             bar: Current bar (for logging)
-
-        Raises:
-            RiskViolation: If risk check fails
         """
-        logger.info(f"  {signal}")
-        self._log("signal_generated", signal=self._signal_to_dict(signal), bar=self._bar_to_dict(bar))
+        logger.info(f"Signal: {signal}")
+        self.audit_logger.log_signal_generated(signal, bar)
 
-        # Risk checks
-        self._check_daily_loss()
-        self._check_trade_throttle()
-        self._check_position_size(signal)
-        self._check_trading_hours()
+        # Run all risk checks
+        positions = self.broker.positions()
+        risk_check = self.risk_manager.check_all(signal, positions)
+
+        if not risk_check.passed:
+            logger.warning(f"⚠️ Risk block: {risk_check.reason}")
+            self.audit_logger.log_risk_block(signal, risk_check.reason)
+            return
 
         # Execute via broker
         try:
@@ -185,113 +165,18 @@ class LiveRunner:
                 self.broker.close_all(signal.symbol)
                 order_id = "close_all"
             else:
-                raise ValueError(f"Invalid signal side: {signal.side}")
+                logger.error(f"Invalid signal side: {signal.side}")
+                return
 
             logger.success(f"✅ Executed {signal.side.upper()} | Order ID: {order_id}")
-            self._log("order_placed", signal=self._signal_to_dict(signal), order_id=order_id)
+            self.audit_logger.log_order_placed(signal, order_id)
 
-            # Update tracking
-            self.daily_trades += 1
-            self.last_trade_time = datetime.utcnow()
+            # Update risk tracking
+            self.risk_manager.record_trade()
 
         except Exception as e:
             logger.error(f"❌ Broker error: {e}")
-            self._log("broker_error", signal=self._signal_to_dict(signal), error=str(e))
-            raise
-
-    # ========== Risk Checks ==========
-
-    def _check_kill_switch(self):
-        """
-        Check for kill switch activation.
-
-        Checks:
-        1. /tmp/mft_halt.flag file
-        2. config.halt flag (if config supports reload)
-
-        Raises:
-            KillSwitchActivated: If kill switch detected
-        """
-        # File flag
-        halt_flag = Path("/tmp/mft_halt.flag")
-        if halt_flag.exists():
-            raise KillSwitchActivated("File flag detected: /tmp/mft_halt.flag")
-
-        # Config flag (future: support hot-reload)
-        if self.config.get("halt", False):
-            raise KillSwitchActivated("Config halt=true")
-
-    def _check_daily_loss(self):
-        """
-        Check daily loss limit.
-
-        Raises:
-            RiskViolation: If daily loss exceeds max
-        """
-        max_loss = self.config.get("risk", {}).get("max_daily_loss_usd", 100)
-
-        # Get current positions P&L
-        positions = self.broker.positions()
-        unrealized_pnl = sum(p.pnl for p in positions.values())
-
-        total_pnl = self.daily_pnl + unrealized_pnl
-
-        if total_pnl < -max_loss:
-            raise RiskViolation(f"Daily loss limit hit: ${total_pnl:.2f} < -${max_loss}")
-
-    def _check_trade_throttle(self):
-        """
-        Check trade throttle (max trades per day).
-
-        Raises:
-            RiskViolation: If max trades exceeded
-        """
-        max_trades = self.config.get("risk", {}).get("max_trades_per_day", 20)
-
-        if self.daily_trades >= max_trades:
-            raise RiskViolation(f"Max trades/day reached: {self.daily_trades}/{max_trades}")
-
-    def _check_position_size(self, signal: Signal):
-        """
-        Check position size limits.
-
-        Raises:
-            RiskViolation: If position too large
-        """
-        max_position = self.config.get("risk", {}).get("max_position_usd", 1000)
-
-        # Estimate notional (signal.price is approximate)
-        notional = signal.qty * signal.price
-
-        if notional > max_position:
-            raise RiskViolation(
-                f"Position too large: ${notional:.2f} > ${max_position}"
-            )
-
-    def _check_trading_hours(self):
-        """
-        Check if within trading hours.
-
-        Raises:
-            RiskViolation: If outside trading hours
-        """
-        trading_hours = self.config.get("risk", {}).get("trading_hours", {})
-        if not trading_hours:
-            return  # No restrictions
-
-        now = datetime.utcnow().time()
-        start_str = trading_hours.get("start", "00:00")
-        end_str = trading_hours.get("end", "23:59")
-
-        # Parse HH:MM
-        start_h, start_m = map(int, start_str.split(":"))
-        end_h, end_m = map(int, end_str.split(":"))
-
-        start = datetime.utcnow().replace(hour=start_h, minute=start_m).time()
-        end = datetime.utcnow().replace(hour=end_h, minute=end_m).time()
-
-        if not (start <= now <= end):
-            raise RiskViolation(f"Outside trading hours: {now} not in {start}-{end}")
+            self.audit_logger.log_broker_error(signal, str(e))
 
     # ========== Shutdown Handlers ==========
 
@@ -312,7 +197,7 @@ class LiveRunner:
         for symbol, pos in positions.items():
             logger.info(f"  {pos}")
 
-        self._log("shutdown", balance=balance, positions=len(positions))
+        self.audit_logger.log_shutdown(balance, len(positions))
 
         logger.info("✅ Shutdown complete")
 
@@ -330,62 +215,12 @@ class LiveRunner:
                 logger.warning(f"Closing position: {symbol}")
                 self.broker.close_all(symbol)
 
-            self._log("emergency_shutdown", positions_closed=len(positions))
+            self.audit_logger.log_emergency_shutdown(len(positions))
 
         except Exception as e:
             logger.exception(f"❌ Emergency shutdown failed: {e}")
 
         logger.critical("🛑 Emergency shutdown complete")
-
-    # ========== Logging ==========
-
-    def _log(self, event: str, **kwargs):
-        """
-        Write to audit log (JSON lines).
-
-        Args:
-            event: Event type (bar_received, signal_generated, etc.)
-            **kwargs: Event data
-        """
-        log_entry = {
-            "ts": datetime.utcnow().isoformat() + "Z",
-            "event": event,
-            **kwargs
-        }
-
-        with open(self.audit_log_path, "a") as f:
-            f.write(json.dumps(log_entry, default=str) + "\n")
-
-    def _bar_to_dict(self, bar: Bar) -> dict:
-        """Convert Bar to dict for logging."""
-        return {
-            "timestamp": bar.timestamp,
-            "datetime": bar.datetime.isoformat(),
-            "open": bar.open,
-            "high": bar.high,
-            "low": bar.low,
-            "close": bar.close,
-            "volume": bar.volume,
-            "gap_flag": bar.gap_flag,
-            "zero_vol_flag": bar.zero_vol_flag
-        }
-
-    def _signal_to_dict(self, signal: Signal) -> dict:
-        """Convert Signal to dict for logging."""
-        return {
-            "symbol": signal.symbol,
-            "side": signal.side,
-            "qty": signal.qty,
-            "price": signal.price,
-            "sl": signal.sl,
-            "tp": signal.tp,
-            "reason": signal.reason
-        }
-
-    @staticmethod
-    def _today() -> str:
-        """Get today's date (YYYY-MM-DD)."""
-        return datetime.utcnow().strftime("%Y-%m-%d")
 
 
 # ========== CLI Entry Point ==========
@@ -405,8 +240,12 @@ def main():
     args = ap.parse_args()
 
     # Load config
-    with open(args.config) as f:
-        config = yaml.safe_load(f)
+    with open(args.config, encoding="utf-8") as f:
+        config = yaml.safe_load(f) or {}
+
+    if not config:
+        logger.warning(f"Config file {args.config} is empty. Using default settings.")
+        config = {}
 
     # TODO: Instantiate components from config
     # - DataFeed (BinanceFuturesDataFeed)

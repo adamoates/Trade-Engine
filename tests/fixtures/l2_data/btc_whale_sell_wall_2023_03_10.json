@@ -1,0 +1,29 @@
+{
+  "symbol": "BTC",
+  "timestamp": "2023-03-10T15:45:00Z",
+  "description": "Large sell wall at $22k resistance - whale accumulation pattern",
+  "bids": [
+    {"price": 21950.0, "quantity": 12.5, "order_count": 45},
+    {"price": 21945.0, "quantity": 8.3, "order_count": 32},
+    {"price": 21940.0, "quantity": 15.2, "order_count": 58},
+    {"price": 21935.0, "quantity": 22.1, "order_count": 67},
+    {"price": 21930.0, "quantity": 9.8, "order_count": 28},
+    {"price": 21925.0, "quantity": 11.4, "order_count": 41},
+    {"price": 21920.0, "quantity": 185.6, "order_count": 12},
+    {"price": 21915.0, "quantity": 7.9, "order_count": 23},
+    {"price": 21910.0, "quantity": 13.7, "order_count": 52},
+    {"price": 21905.0, "quantity": 10.2, "order_count": 34}
+  ],
+  "asks": [
+    {"price": 21955.0, "quantity": 9.1, "order_count": 38},
+    {"price": 21960.0, "quantity": 11.8, "order_count": 45},
+    {"price": 21965.0, "quantity": 7.3, "order_count": 29},
+    {"price": 21970.0, "quantity": 14.2, "order_count": 51},
+    {"price": 21975.0, "quantity": 8.9, "order_count": 33},
+    {"price": 21980.0, "quantity": 12.6, "order_count": 47},
+    {"price": 21985.0, "quantity": 10.4, "order_count": 39},
+    {"price": 21990.0, "quantity": 225.8, "order_count": 8},
+    {"price": 21995.0, "quantity": 9.7, "order_count": 36},
+    {"price": 22000.0, "quantity": 315.4, "order_count": 5}
+  ]
+}

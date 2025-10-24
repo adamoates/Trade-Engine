@@ -17,7 +17,9 @@ docs/
 │   ├── github-actions-guide.md     # Complete GitHub Actions reference
 │   ├── pipeline-one-liners.md      # Quick copy-paste commands
 │   ├── project-setup-checklist.md  # Environment setup checklist
-│   └── python-tool-structure.md    # Python packaging and tool design
+│   ├── python-tool-structure.md    # Python packaging and tool design
+│   ├── using-test-fixtures.md      # Historical test data usage
+│   └── web3-signals.md             # Web3 on-chain signals guide
 ```
 
 ## Quick Start
@@ -124,6 +126,22 @@ Daily development practices and workflows
 - Testing strategy and practices
 - Documentation practices
 - Team collaboration patterns
+
+### 🧪 **using-test-fixtures.md**
+Using historical test data instead of mocked data
+- Why use real historical cryptocurrency data
+- Generating fixtures from free public APIs
+- Available fixtures (Binance.US, CoinGecko, anomalies)
+- Helper functions for loading fixture data
+- Migration guide from mocked to real data
+
+### ⛓️ **web3-signals.md**
+Web3 on-chain signals for trading enhancement
+- Reading blockchain data for trading signals (100% free)
+- Gas prices, DEX liquidity, funding rates
+- Signal scoring and combination logic
+- Integration with L2 order book strategy
+- Volatility detection and position sizing
 
 ## Quick Reference
 

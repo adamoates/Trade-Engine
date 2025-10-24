@@ -53,9 +53,9 @@ def _build_expected_index(start: pd.Timestamp, end: pd.Timestamp, freq: pd.Timed
     # Convert Timedelta to freq string if possible
     seconds = int(freq / pd.Timedelta(seconds=1))
     if seconds % 60 == 0:
-        step = f"{seconds//60}T"
+        step = f"{seconds//60}min"  # Changed from 'T' to 'min' (pandas 2.2+)
     else:
-        step = f"{seconds}S"
+        step = f"{seconds}s"  # Changed from 'S' to 's' (pandas 2.2+)
     return pd.date_range(start=start, end=end, freq=step, tz="UTC")
 
 def _detect_issues(df: pd.DataFrame):

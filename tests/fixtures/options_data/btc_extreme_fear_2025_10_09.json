@@ -1,0 +1,15 @@
+{
+  "symbol": "BTC",
+  "timestamp": "2025-10-09T18:00:00Z",
+  "description": "Historical extreme fear from 2025-10-09",
+  "put_volume": 16961.0,
+  "call_volume": 10000.0,
+  "put_call_ratio": 1.696,
+  "put_open_interest": 84805.2,
+  "call_open_interest": 50000.0,
+  "total_open_interest": 134805.2,
+  "implied_volatility": 0.72,
+  "iv_rank": 72.5,
+  "max_pain": 107530.39,
+  "gamma_exposure": 69610380.0
+}

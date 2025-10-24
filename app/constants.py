@@ -1,0 +1,42 @@
+"""
+Application-wide constants.
+
+Eliminates magic numbers and hardcoded strings for better maintainability.
+"""
+
+# Binance API
+BINANCE_API_KEY_LENGTH = 64
+BINANCE_API_SECRET_LENGTH = 64
+BINANCE_DEFAULT_RECV_WINDOW_MS = 5000
+BINANCE_REQUEST_TIMEOUT_SECONDS = 10
+
+# Risk Management Defaults
+DEFAULT_MAX_DAILY_LOSS_USD = 100
+DEFAULT_MAX_TRADES_PER_DAY = 20
+DEFAULT_MAX_POSITION_USD = 1000
+
+# Kill Switch
+KILL_SWITCH_FILE_PATH = "/tmp/mft_halt.flag"
+
+# Logging
+AUDIT_LOG_DIR = "logs"
+AUDIT_LOG_PREFIX = "audit"
+
+# HTTP Status Codes
+HTTP_OK = 200
+HTTP_BAD_REQUEST = 400
+HTTP_UNAUTHORIZED = 401
+HTTP_FORBIDDEN = 403
+HTTP_NOT_FOUND = 404
+HTTP_TOO_MANY_REQUESTS = 429
+HTTP_INTERNAL_ERROR = 500
+
+# Exit Codes
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EXIT_SIGINT = 130
+
+# Timestamp Formats
+TIMESTAMP_MS_MULTIPLIER = 1000
+DATE_FORMAT_YYYY_MM_DD = "%Y-%m-%d"
+DATETIME_ISO_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
