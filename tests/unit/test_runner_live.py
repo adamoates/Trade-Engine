@@ -37,7 +37,7 @@ class TestRiskManager:
 
             # ASSERT
             assert result.passed is False
-            assert "Config halt=true" in result.reason
+            assert "risk.halt=true" in result.reason
 
     def test_kill_switch_passes_when_inactive(self):
         """Test kill switch passes when not activated."""
