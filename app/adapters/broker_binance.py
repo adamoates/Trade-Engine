@@ -65,6 +65,24 @@ class BinanceFuturesBroker(Broker):
                 f"Missing API credentials. Set {env_prefix}_API_KEY and {env_prefix}_API_SECRET"
             )
 
+        # Validate API key format (Binance keys are 64 characters)
+        if len(self.api_key) != 64:
+            testnet_url = "https://testnet.binancefuture.com/en/futures/BTCUSDT"
+            live_url = "https://www.binance.com/en/my/settings/api-management"
+            help_url = testnet_url if testnet else live_url
+
+            raise BinanceError(
+                f"Invalid API key format. Binance API keys should be 64 characters.\n"
+                f"Your key is {len(self.api_key)} characters.\n"
+                f"Get your API key from: {help_url}"
+            )
+
+        if len(self.api_secret) != 64:
+            raise BinanceError(
+                f"Invalid API secret format. Binance API secrets should be 64 characters.\n"
+                f"Your secret is {len(self.api_secret)} characters."
+            )
+
         logger.info(
             f"BinanceFuturesBroker initialized ({'TESTNET' if testnet else '⚠️ LIVE'})"
         )

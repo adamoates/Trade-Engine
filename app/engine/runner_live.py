@@ -406,7 +406,11 @@ def main():
 
     # Load config
     with open(args.config) as f:
-        config = yaml.safe_load(f)
+        config = yaml.safe_load(f) or {}
+
+    if not config:
+        logger.warning(f"Config file {args.config} is empty. Using default settings.")
+        config = {}
 
     # TODO: Instantiate components from config
     # - DataFeed (BinanceFuturesDataFeed)

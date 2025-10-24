@@ -14,8 +14,8 @@ class TestBrokerSignature:
         """Test that _sign() generates correct HMAC SHA256 signature."""
         # ARRANGE: Set up test credentials and parameters
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_api_key",
-            "BINANCE_TESTNET_API_SECRET": "test_api_secret"
+            "BINANCE_TESTNET_API_KEY": "a" * 64,
+            "BINANCE_TESTNET_API_SECRET": "b" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -33,7 +33,7 @@ class TestBrokerSignature:
             # Query string: symbol=BTCUSDT&side=BUY&type=MARKET&quantity=0.001&timestamp=1609459200000&recvWindow=5000
             query_string = "&".join([f"{k}={v}" for k, v in params.items()])
             expected_signature = hmac.new(
-                b"test_api_secret",
+                b"b" * 64,
                 query_string.encode(),
                 hashlib.sha256
             ).hexdigest()
@@ -50,8 +50,8 @@ class TestBrokerSignature:
         """Test that different parameters generate different signatures."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_api_key",
-            "BINANCE_TESTNET_API_SECRET": "test_api_secret"
+            "BINANCE_TESTNET_API_KEY": "a" * 64,
+            "BINANCE_TESTNET_API_SECRET": "b" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -69,8 +69,8 @@ class TestBrokerSignature:
         """Test signature generation with empty parameters."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_api_key",
-            "BINANCE_TESTNET_API_SECRET": "test_api_secret"
+            "BINANCE_TESTNET_API_KEY": "a" * 64,
+            "BINANCE_TESTNET_API_SECRET": "b" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -79,7 +79,7 @@ class TestBrokerSignature:
 
             # ASSERT: Should still generate valid signature (empty query string)
             expected = hmac.new(
-                b"test_api_secret",
+                b"b" * 64,
                 b"",
                 hashlib.sha256
             ).hexdigest()
@@ -92,33 +92,37 @@ class TestBrokerInitialization:
     def test_testnet_initialization_success(self):
         """Test successful testnet broker initialization."""
         # ARRANGE & ACT
+        test_key = "a" * 64  # Valid 64-character key
+        test_secret = "b" * 64  # Valid 64-character secret
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": test_key,
+            "BINANCE_TESTNET_API_SECRET": test_secret
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
         # ASSERT
         assert broker.testnet is True
         assert broker.base_url == BinanceFuturesBroker.TESTNET_BASE
-        assert broker.api_key == "test_key"
-        assert broker.api_secret == "test_secret"
+        assert broker.api_key == test_key
+        assert broker.api_secret == test_secret
         assert broker.recv_window == 5000
 
     def test_live_initialization_success(self):
         """Test successful live broker initialization."""
         # ARRANGE & ACT
+        live_key = "c" * 64
+        live_secret = "d" * 64
         with patch.dict(os.environ, {
-            "BINANCE_API_KEY": "live_key",
-            "BINANCE_API_SECRET": "live_secret"
+            "BINANCE_API_KEY": live_key,
+            "BINANCE_API_SECRET": live_secret
         }):
             broker = BinanceFuturesBroker(testnet=False)
 
         # ASSERT
         assert broker.testnet is False
         assert broker.base_url == BinanceFuturesBroker.LIVE_BASE
-        assert broker.api_key == "live_key"
-        assert broker.api_secret == "live_secret"
+        assert broker.api_key == live_key
+        assert broker.api_secret == live_secret
 
     def test_missing_api_key_raises_error(self):
         """Test that missing API key raises BinanceError."""
@@ -131,7 +135,7 @@ class TestBrokerInitialization:
     def test_missing_api_secret_raises_error(self):
         """Test that missing API secret raises BinanceError."""
         # ARRANGE: Only API key set
-        with patch.dict(os.environ, {"BINANCE_TESTNET_API_KEY": "test_key"}, clear=True):
+        with patch.dict(os.environ, {"BINANCE_TESTNET_API_KEY": "c" * 64}, clear=True):
             # ACT & ASSERT
             with pytest.raises(BinanceError, match="Missing API credentials"):
                 BinanceFuturesBroker(testnet=True)
@@ -139,9 +143,11 @@ class TestBrokerInitialization:
     def test_custom_recv_window(self):
         """Test custom recvWindow configuration."""
         # ARRANGE & ACT
+        test_key = "e" * 64
+        test_secret = "f" * 64
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": test_key,
+            "BINANCE_TESTNET_API_SECRET": test_secret
         }):
             broker = BinanceFuturesBroker(testnet=True, recv_window=10000)
 
@@ -156,8 +162,8 @@ class TestBrokerOrderOperations:
         """Test successful buy order placement."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": "c" * 64,
+            "BINANCE_TESTNET_API_SECRET": "d" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -185,8 +191,8 @@ class TestBrokerOrderOperations:
         """Test successful sell order placement."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": "c" * 64,
+            "BINANCE_TESTNET_API_SECRET": "d" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
             broker._request = Mock(return_value={"orderId": 987654321})
@@ -208,8 +214,8 @@ class TestBrokerOrderOperations:
         """Test positions() returns long position correctly."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": "c" * 64,
+            "BINANCE_TESTNET_API_SECRET": "d" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -242,8 +248,8 @@ class TestBrokerOrderOperations:
         """Test positions() returns short position correctly."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": "c" * 64,
+            "BINANCE_TESTNET_API_SECRET": "d" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -271,8 +277,8 @@ class TestBrokerOrderOperations:
         """Test positions() returns empty dict when no positions."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": "c" * 64,
+            "BINANCE_TESTNET_API_SECRET": "d" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -297,8 +303,8 @@ class TestBrokerOrderOperations:
         """Test close_all() closes long position with sell order."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": "c" * 64,
+            "BINANCE_TESTNET_API_SECRET": "d" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
@@ -326,8 +332,8 @@ class TestBrokerOrderOperations:
         """Test close_all() closes short position with buy order."""
         # ARRANGE
         with patch.dict(os.environ, {
-            "BINANCE_TESTNET_API_KEY": "test_key",
-            "BINANCE_TESTNET_API_SECRET": "test_secret"
+            "BINANCE_TESTNET_API_KEY": "c" * 64,
+            "BINANCE_TESTNET_API_SECRET": "d" * 64
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
