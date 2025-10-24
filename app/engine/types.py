@@ -47,8 +47,10 @@ class Signal:
     reason: str = ""           # Why signal generated (for audit log)
 
     def __repr__(self):
+        sl_str = f"{self.sl:.2f}" if self.sl is not None else "None"
+        tp_str = f"{self.tp:.2f}" if self.tp is not None else "None"
         return (f"Signal({self.side.upper()} {self.qty} {self.symbol} @ {self.price:.2f}, "
-                f"SL={self.sl:.2f if self.sl else 'None'}, TP={self.tp:.2f if self.tp else 'None'})")
+                f"SL={sl_str}, TP={tp_str})")
 
 
 @dataclass
