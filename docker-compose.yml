@@ -8,6 +8,8 @@ services:
       dockerfile: Dockerfile
     container_name: mft-trading-engine
     restart: unless-stopped
+    # Use host networking for zero network overhead (Linux only)
+    # network_mode: "host"  # Uncomment for maximum performance
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
@@ -19,6 +21,12 @@ services:
       - ./src/mft/core/config:/app/src/mft/core/config:ro
     networks:
       - mft-network
+    # Optional: CPU/memory limits for production
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 2G
     # Uncomment for live trading
     # command: python -m mft.core.engine.runner_live --config /app/src/mft/core/config/live.yaml
 
