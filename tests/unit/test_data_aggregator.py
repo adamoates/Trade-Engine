@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 import statistics
 
-from mft.services.data.types import (
+from trade_engine.services.data.types import (
     DataSource,
     DataSourceType,
     AssetType,
@@ -12,7 +12,7 @@ from mft.services.data.types import (
     Quote,
     DataQualityMetrics
 )
-from mft.services.data.aggregator import DataAggregator, CrossValidationResult
+from trade_engine.services.data.aggregator import DataAggregator, CrossValidationResult
 
 
 class MockDataSource(DataSource):

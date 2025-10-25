@@ -9,7 +9,7 @@ Usage:
     python tools/demo_web3_signals.py
 """
 
-from mft.services.data.web3_signals import Web3DataSource, get_web3_signal
+from trade_engine.services.data.web3_signals import Web3DataSource, get_web3_signal
 from loguru import logger
 import sys
 

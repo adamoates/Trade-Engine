@@ -4,13 +4,13 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 
-from mft.services.data.types import (
+from trade_engine.services.data.types import (
     DataSourceType,
     AssetType,
     OHLCV,
     Quote
 )
-from mft.services.data.source_yahoo import YahooFinanceSource
+from trade_engine.services.data.source_yahoo import YahooFinanceSource
 
 
 class TestYahooFinanceInit:
@@ -56,7 +56,7 @@ class TestYahooFinanceInit:
 class TestYahooFetchOHLCV:
     """Test OHLCV data fetching."""
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_ohlcv_returns_candles(self, mock_ticker):
         """Test fetching OHLCV returns correct data structure."""
         # ARRANGE
@@ -95,7 +95,7 @@ class TestYahooFetchOHLCV:
         assert candles[0].source == DataSourceType.YAHOO_FINANCE
         assert candles[0].symbol == "AAPL"
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_ohlcv_empty_response(self, mock_ticker):
         """Test handling of empty data response."""
         # ARRANGE
@@ -125,7 +125,7 @@ class TestYahooFetchOHLCV:
         with pytest.raises(ValueError, match="Unsupported interval"):
             source.fetch_ohlcv("AAPL", "3m", start, end)
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_ohlcv_uses_correct_interval(self, mock_ticker):
         """Test interval mapping to yfinance format."""
         # ARRANGE
@@ -146,7 +146,7 @@ class TestYahooFetchOHLCV:
         call_kwargs = mock_instance.history.call_args[1]
         assert call_kwargs['interval'] == "1h"
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_ohlcv_converts_timestamps_correctly(self, mock_ticker):
         """Test timestamp conversion to milliseconds."""
         # ARRANGE
@@ -182,7 +182,7 @@ class TestYahooFetchOHLCV:
 class TestYahooFetchQuote:
     """Test real-time quote fetching."""
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_quote_returns_current_price(self, mock_ticker):
         """Test fetching current quote."""
         # ARRANGE
@@ -208,7 +208,7 @@ class TestYahooFetchQuote:
         assert quote.volume_24h == 1000000
         assert quote.source == DataSourceType.YAHOO_FINANCE
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_quote_fallback_to_regular_market_price(self, mock_ticker):
         """Test price fallback when currentPrice not available."""
         # ARRANGE
@@ -226,7 +226,7 @@ class TestYahooFetchQuote:
         # ASSERT
         assert quote.price == 150.25
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_quote_fallback_to_previous_close(self, mock_ticker):
         """Test price fallback to previousClose."""
         # ARRANGE
@@ -244,7 +244,7 @@ class TestYahooFetchQuote:
         # ASSERT
         assert quote.price == 150.25
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_fetch_quote_no_price_raises_error(self, mock_ticker):
         """Test error when no price data available."""
         # ARRANGE
@@ -342,7 +342,7 @@ class TestYahooNormalizeSymbol:
 class TestYahooValidateConnection:
     """Test connection validation."""
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_validate_connection_success(self, mock_ticker):
         """Test successful connection validation."""
         # ARRANGE
@@ -358,7 +358,7 @@ class TestYahooValidateConnection:
         # ASSERT
         assert result is True
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_validate_connection_with_regular_market_price(self, mock_ticker):
         """Test connection validation with regularMarketPrice."""
         # ARRANGE
@@ -374,7 +374,7 @@ class TestYahooValidateConnection:
         # ASSERT
         assert result is True
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_validate_connection_failure(self, mock_ticker):
         """Test connection validation failure."""
         # ARRANGE
@@ -390,7 +390,7 @@ class TestYahooValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('mft.services.data.source_yahoo.yf.Ticker')
+    @patch('trade_engine.services.data.source_yahoo.yf.Ticker')
     def test_validate_connection_exception(self, mock_ticker):
         """Test connection validation with exception."""
         # ARRANGE

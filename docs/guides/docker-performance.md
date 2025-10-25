@@ -1,4 +1,4 @@
-# Docker Performance Considerations for MFT Trading Bot
+# Docker Performance Considerations for Trade-Engine
 
 **Quick Answer**: Docker is **optional** for this project. It adds 1-5ms latency which is negligible for medium-frequency trading (5-60 second holds) but can be avoided if needed.
 
@@ -22,7 +22,7 @@
 **How to run**:
 ```bash
 source .venv/bin/activate
-python -m mft.core.engine.runner_live --config src/mft/core/config/paper.yaml
+python -m trade_engine.core.engine.runner_live --config src/trade_engine/core/config/paper.yaml
 ```
 
 **Pros**: Zero container overhead
@@ -38,7 +38,7 @@ python -m mft.core.engine.runner_live --config src/mft/core/config/paper.yaml
 
 **How to run**:
 ```bash
-docker-compose up mft-engine
+docker-compose up trade-engine
 ```
 
 **Pros**: Isolated, portable, reproducible
@@ -56,7 +56,7 @@ docker-compose up mft-engine
 ```yaml
 # docker-compose.yml
 services:
-  mft-engine:
+  trade-engine:
     network_mode: "host"  # Bypass Docker network stack
 ```
 
@@ -67,7 +67,7 @@ services:
 
 ## Latency Budget Analysis
 
-For MFT Bot (from CLAUDE.md):
+For Trade-Engine (from CLAUDE.md):
 
 ```
 Target Latency Budget:
@@ -100,10 +100,10 @@ Test actual performance with both approaches:
 
 ```bash
 # Test 1: Bare metal
-time python -m mft.core.engine.runner_live --test-latency
+time python -m trade_engine.core.engine.runner_live --test-latency
 
 # Test 2: Docker
-time docker-compose run mft-engine python -m mft.core.engine.runner_live --test-latency
+time docker-compose run trade-engine python -m trade_engine.core.engine.runner_live --test-latency
 
 # Compare results
 ```

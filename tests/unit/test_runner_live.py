@@ -2,9 +2,9 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from mft.core.engine.runner_live import LiveRunner
-from mft.core.engine.risk_manager import RiskManager, RiskCheckResult
-from mft.core.engine.types import Signal, Position
+from trade_engine.core.engine.runner_live import LiveRunner
+from trade_engine.core.engine.risk_manager import RiskManager, RiskCheckResult
+from trade_engine.core.engine.types import Signal, Position
 
 
 class TestRiskManager:
@@ -17,7 +17,7 @@ class TestRiskManager:
         risk_manager = RiskManager(config)
 
         # ACT & ASSERT
-        with patch("mft.core.engine.risk_manager.Path") as mock_path:
+        with patch("trade_engine.core.engine.risk_manager.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             result = risk_manager.check_kill_switch()
 
@@ -31,7 +31,7 @@ class TestRiskManager:
         risk_manager = RiskManager(config)
 
         # ACT
-        with patch("mft.core.engine.risk_manager.Path") as mock_path:
+        with patch("trade_engine.core.engine.risk_manager.Path") as mock_path:
             mock_path.return_value.exists.return_value = False
             result = risk_manager.check_kill_switch()
 
@@ -46,7 +46,7 @@ class TestRiskManager:
         risk_manager = RiskManager(config)
 
         # ACT
-        with patch("mft.core.engine.risk_manager.Path") as mock_path:
+        with patch("trade_engine.core.engine.risk_manager.Path") as mock_path:
             mock_path.return_value.exists.return_value = False
             result = risk_manager.check_kill_switch()
 
@@ -216,7 +216,7 @@ class TestTradingHours:
         risk_manager = RiskManager(config)
 
         # ACT - Mock current time to be 20:00 (outside hours)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_dt:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_dt:
             mock_dt.utcnow.return_value.time.return_value = __import__("datetime").time(20, 0)
             mock_dt.utcnow.return_value.replace.return_value.time.side_effect = [
                 __import__("datetime").time(9, 0),  # start
@@ -274,7 +274,7 @@ class TestLiveRunner:
         ))
 
         # Create a mock bar
-        from mft.core.engine.types import Bar
+        from trade_engine.core.engine.types import Bar
         bar = Bar(
             timestamp=1609459200000,
             open=50000.0,

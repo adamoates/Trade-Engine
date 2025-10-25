@@ -35,9 +35,9 @@ os.environ['LOGURU_LEVEL'] = 'ERROR'
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from mft.services.adapters.feed_binance_l2 import OrderBook
-from mft.services.strategies.alpha_l2_imbalance import L2ImbalanceStrategy, L2StrategyConfig
-from mft.core.engine.types import Bar
+from trade_engine.services.adapters.feed_binance_l2 import OrderBook
+from trade_engine.services.strategies.alpha_l2_imbalance import L2ImbalanceStrategy, L2StrategyConfig
+from trade_engine.core.engine.types import Bar
 
 
 class PerformanceBenchmark:

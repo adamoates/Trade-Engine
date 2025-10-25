@@ -29,10 +29,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from loguru import logger
 
-from mft.services.data.types import AssetType
-from mft.services.data.source_yahoo import YahooFinanceSource
-from mft.services.data.source_coingecko import CoinGeckoSource
-from mft.services.data.aggregator import DataAggregator, print_disclaimer
+from trade_engine.services.data.types import AssetType
+from trade_engine.services.data.source_yahoo import YahooFinanceSource
+from trade_engine.services.data.source_coingecko import CoinGeckoSource
+from trade_engine.services.data.aggregator import DataAggregator, print_disclaimer
 
 
 def main():

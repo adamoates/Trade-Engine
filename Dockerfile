@@ -1,4 +1,4 @@
-# Multi-stage build for MFT Trading Bot
+# Multi-stage build for Trade-Engine
 FROM python:3.11-slim as builder
 
 # Set working directory
@@ -27,9 +27,9 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Create app user (don't run as root)
-RUN useradd --create-home --shell /bin/bash mft && \
+RUN useradd --create-home --shell /bin/bash trader && \
     mkdir -p /app /app/logs /app/data && \
-    chown -R mft:mft /app
+    chown -R trader:trader /app
 
 # Set working directory
 WORKDIR /app
@@ -39,13 +39,13 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY --chown=mft:mft . .
+COPY --chown=trader:trader . .
 
 # Switch to app user
-USER mft
+USER trader
 
 # Expose ports (if running API server)
 # EXPOSE 8000
 
 # Default command (override in docker-compose.yml)
-CMD ["python", "-m", "mft.core.engine.runner_live"]
+CMD ["python", "-m", "trade_engine.core.engine.runner_live"]

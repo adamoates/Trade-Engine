@@ -9,7 +9,7 @@ Usage:
     python tools/demo_signal_normalization.py
 """
 
-from mft.services.data.signal_normalizer import SignalNormalizer
+from trade_engine.services.data.signal_normalizer import SignalNormalizer
 from loguru import logger
 import sys
 import numpy as np

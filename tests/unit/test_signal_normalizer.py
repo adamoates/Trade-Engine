@@ -11,7 +11,7 @@ from pathlib import Path
 import tempfile
 import json
 
-from mft.services.data.signal_normalizer import (
+from trade_engine.services.data.signal_normalizer import (
     SignalNormalizer,
     SignalHistory,
     normalize_signal

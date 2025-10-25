@@ -30,13 +30,13 @@ import numpy as np
 from loguru import logger
 
 # Import all our components
-from mft.services.data.web3_signals import Web3DataSource, Web3Signal
-from mft.services.data.signal_normalizer import SignalNormalizer
-from mft.services.strategies.market_regime import detect_regime, MarketRegime
-from mft.services.strategies.alpha_bollinger import BollingerBandStrategy
-from mft.services.strategies.alpha_ma_crossover import MovingAverageCrossover
-from mft.services.strategies.signal_confirmation import SignalConfirmation, ConfirmationType
-from mft.core.engine.risk_manager import RiskManager, RiskCheck
+from trade_engine.services.data.web3_signals import Web3DataSource, Web3Signal
+from trade_engine.services.data.signal_normalizer import SignalNormalizer
+from trade_engine.services.strategies.market_regime import detect_regime, MarketRegime
+from trade_engine.services.strategies.alpha_bollinger import BollingerBandStrategy
+from trade_engine.services.strategies.alpha_ma_crossover import MovingAverageCrossover
+from trade_engine.services.strategies.signal_confirmation import SignalConfirmation, ConfirmationType
+from trade_engine.core.engine.risk_manager import RiskManager, RiskCheck
 
 # Configure logger
 logger.remove()
@@ -282,7 +282,7 @@ class IntegratedTradingSystem:
     def _create_simulated_web3_source(self):
         """Create Web3 source with simulated data."""
         from unittest.mock import Mock
-        from mft.services.data.web3_signals import GasData, LiquidityData, FundingRateData
+        from trade_engine.services.data.web3_signals import GasData, LiquidityData, FundingRateData
         
         source = Web3DataSource(normalize=True)
         

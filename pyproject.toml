@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mft"
+name = "trade-engine"
 version = "0.2.0"
-description = "Medium-Frequency Trading bot using L2 order book imbalance detection"
+description = "Professional cryptocurrency trading engine with L2 order book analysis"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -66,7 +66,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["mft*"]
+include = ["trade_engine*"]
 namespaces = false
 
 [tool.black]
@@ -112,7 +112,7 @@ ignore = [
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra -q --strict-markers --cov=mft --cov-report=term-missing"
+addopts = "-ra -q --strict-markers --cov=trade_engine --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -126,7 +126,7 @@ disallow_untyped_defs = false  # Set to true once all code is typed
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["src/mft"]
+source = ["src/trade_engine"]
 omit = [
     "*/tests/*",
     "*/__pycache__/*",

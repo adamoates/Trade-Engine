@@ -2,9 +2,9 @@
 import pytest
 from datetime import datetime, timezone
 
-from mft.services.data.types import OHLCV, DataSourceType
-from mft.services.strategies.alpha_ma_crossover import MovingAverageCrossoverAlpha
-from mft.services.strategies.types import InsightDirection
+from trade_engine.services.data.types import OHLCV, DataSourceType
+from trade_engine.services.strategies.alpha_ma_crossover import MovingAverageCrossoverAlpha
+from trade_engine.services.strategies.types import InsightDirection
 
 
 class TestMovingAverageCrossoverInit:

@@ -34,8 +34,8 @@ import numpy as np
 from loguru import logger
 
 # Import validated components
-from mft.services.data.web3_signals import Web3DataSource, GasData, LiquidityData, FundingRateData
-from mft.services.data.signal_normalizer import SignalNormalizer
+from trade_engine.services.data.web3_signals import Web3DataSource, GasData, LiquidityData, FundingRateData
+from trade_engine.services.data.signal_normalizer import SignalNormalizer
 
 # Configure logger
 logger.remove()

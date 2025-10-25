@@ -68,7 +68,7 @@ credentials.json
 # Live trading config (contains real API keys, positions, etc.)
 app/config/live.yaml
 config/live.yaml
-src/mft/core/config/live.yaml
+src/trade_engine/core/config/live.yaml
 
 # Docker
 .dockerignore

@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  # MFT Trading Engine
-  mft-engine:
+  # Trade-Engine Core
+  trade-engine:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mft-trading-engine
+    container_name: trade-engine-core
     restart: unless-stopped
     # Use host networking for zero network overhead (Linux only)
     # network_mode: "host"  # Uncomment for maximum performance
@@ -18,9 +18,9 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
-      - ./src/mft/core/config:/app/src/mft/core/config:ro
+      - ./src/trade_engine/core/config:/app/src/trade_engine/core/config:ro
     networks:
-      - mft-network
+      - trade-engine-network
     # Optional: CPU/memory limits for production
     # deploy:
     #   resources:
@@ -28,14 +28,14 @@ services:
     #       cpus: '2'
     #       memory: 2G
     # Uncomment for live trading
-    # command: python -m mft.core.engine.runner_live --config /app/src/mft/core/config/live.yaml
+    # command: python -m trade_engine.core.engine.runner_live --config /app/src/trade_engine/core/config/live.yaml
 
-  # MFT API Server (Phase 3)
-  # mft-api:
+  # Trade-Engine API Server (Phase 3)
+  # trade-engine-api:
   #   build:
   #     context: .
   #     dockerfile: Dockerfile
-  #   container_name: mft-api-server
+  #   container_name: trade-engine-api
   #   restart: unless-stopped
   #   ports:
   #     - "8000:8000"
@@ -47,39 +47,39 @@ services:
   #   volumes:
   #     - ./logs:/app/logs:ro
   #   networks:
-  #     - mft-network
+  #     - trade-engine-network
   #   depends_on:
-  #     - mft-database
-  #   command: uvicorn mft.api.main:app --host 0.0.0.0 --port 8000
+  #     - trade-engine-db
+  #   command: uvicorn trade_engine.api.main:app --host 0.0.0.0 --port 8000
 
   # PostgreSQL Database (Phase 2)
-  # mft-database:
+  # trade-engine-db:
   #   image: postgres:16-alpine
-  #   container_name: mft-postgres
+  #   container_name: trade-engine-postgres
   #   restart: unless-stopped
   #   environment:
-  #     POSTGRES_DB: mft_trading
-  #     POSTGRES_USER: mft_user
+  #     POSTGRES_DB: trade_engine
+  #     POSTGRES_USER: trade_engine_user
   #     POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
   #   volumes:
   #     - postgres-data:/var/lib/postgresql/data
   #   networks:
-  #     - mft-network
+  #     - trade-engine-network
   #   ports:
   #     - "5432:5432"
 
   # Redis Cache (optional, for API caching)
-  # redis:
+  # trade-engine-redis:
   #   image: redis:7-alpine
-  #   container_name: mft-redis
+  #   container_name: trade-engine-redis
   #   restart: unless-stopped
   #   networks:
-  #     - mft-network
+  #     - trade-engine-network
   #   ports:
   #     - "6379:6379"
 
 networks:
-  mft-network:
+  trade-engine-network:
     driver: bridge
 
 volumes:

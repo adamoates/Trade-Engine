@@ -15,8 +15,8 @@ from datetime import datetime, time
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
-from mft.core.engine.risk_manager import RiskManager, RiskCheckResult
-from mft.core.engine.types import Signal, Position
+from trade_engine.core.engine.risk_manager import RiskManager, RiskCheckResult
+from trade_engine.core.engine.types import Signal, Position
 
 
 class TestRiskManagerInit:
@@ -60,7 +60,7 @@ class TestKillSwitch:
         kill_file = tmp_path / "kill_switch.flag"
         kill_file.touch()
 
-        with patch("mft.core.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
+        with patch("trade_engine.core.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
             rm = RiskManager(config)
             result = rm.check_kill_switch()
 
@@ -274,7 +274,7 @@ class TestTradingHours:
 
         # Mock current time to 12:00 (inside 08:00-18:00)
         mock_now = datetime(2025, 1, 15, 12, 0, 0)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_datetime:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = mock_now
             result = rm.check_trading_hours()
 
@@ -294,7 +294,7 @@ class TestTradingHours:
 
         # Mock current time to 20:00 (outside 08:00-18:00)
         mock_now = datetime(2025, 1, 15, 20, 0, 0)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_datetime:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = mock_now
             result = rm.check_trading_hours()
 
@@ -315,7 +315,7 @@ class TestTradingHours:
 
         # Mock current time to 23:00 (inside 22:00-02:00 range, before midnight)
         mock_now = datetime(2025, 1, 15, 23, 0, 0)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_datetime:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = mock_now
             result = rm.check_trading_hours()
 
@@ -335,7 +335,7 @@ class TestTradingHours:
 
         # Mock current time to 01:00 (inside 22:00-02:00 range, after midnight)
         mock_now = datetime(2025, 1, 15, 1, 0, 0)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_datetime:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = mock_now
             result = rm.check_trading_hours()
 
@@ -355,7 +355,7 @@ class TestTradingHours:
 
         # Mock current time to 10:00 (outside 22:00-02:00 range)
         mock_now = datetime(2025, 1, 15, 10, 0, 0)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_datetime:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = mock_now
             result = rm.check_trading_hours()
 
@@ -376,7 +376,7 @@ class TestTradingHours:
 
         # Mock current time to exactly 22:00
         mock_now = datetime(2025, 1, 15, 22, 0, 0)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_datetime:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = mock_now
             result = rm.check_trading_hours()
 
@@ -396,7 +396,7 @@ class TestTradingHours:
 
         # Mock current time to exactly 02:00
         mock_now = datetime(2025, 1, 15, 2, 0, 0)
-        with patch("mft.core.engine.risk_manager.datetime") as mock_datetime:
+        with patch("trade_engine.core.engine.risk_manager.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = mock_now
             result = rm.check_trading_hours()
 
@@ -430,7 +430,7 @@ class TestCheckAll:
 
         # Mock kill switch file to not exist
         kill_file = tmp_path / "kill_switch.flag"
-        with patch("mft.core.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
+        with patch("trade_engine.core.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
             result = rm.check_all(signal, positions)
 
         assert result.passed is True
@@ -473,7 +473,7 @@ class TestCheckAll:
         positions = {}
 
         kill_file = tmp_path / "kill_switch.flag"
-        with patch("mft.core.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
+        with patch("trade_engine.core.engine.risk_manager.KILL_SWITCH_FILE_PATH", str(kill_file)):
             result = rm.check_all(signal, positions)
 
         assert result.passed is False
