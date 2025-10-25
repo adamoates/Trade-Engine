@@ -1,0 +1,109 @@
+{
+  "symbol": "BTC",
+  "timestamp": "2025-10-12T00:00:00Z",
+  "description": "Historical strong rally from 2025-10-12 with buying pressure",
+  "bids": [
+    {
+      "price": 115194.58,
+      "quantity": 3.75,
+      "order_count": 56
+    },
+    {
+      "price": 115136.96,
+      "quantity": 4.3125,
+      "order_count": 64
+    },
+    {
+      "price": 115079.33,
+      "quantity": 4.875,
+      "order_count": 73
+    },
+    {
+      "price": 115021.71,
+      "quantity": 5.4375,
+      "order_count": 81
+    },
+    {
+      "price": 114964.08,
+      "quantity": 6.0,
+      "order_count": 90
+    },
+    {
+      "price": 114906.45,
+      "quantity": 6.5625,
+      "order_count": 98
+    },
+    {
+      "price": 114848.83,
+      "quantity": 7.125,
+      "order_count": 106
+    },
+    {
+      "price": 114791.2,
+      "quantity": 7.6875,
+      "order_count": 115
+    },
+    {
+      "price": 114733.58,
+      "quantity": 8.25,
+      "order_count": 123
+    },
+    {
+      "price": 114675.95,
+      "quantity": 8.8125,
+      "order_count": 132
+    }
+  ],
+  "asks": [
+    {
+      "price": 115309.84,
+      "quantity": 0.9,
+      "order_count": 10
+    },
+    {
+      "price": 115367.46,
+      "quantity": 0.99,
+      "order_count": 11
+    },
+    {
+      "price": 115425.09,
+      "quantity": 1.08,
+      "order_count": 12
+    },
+    {
+      "price": 115482.71,
+      "quantity": 1.17,
+      "order_count": 14
+    },
+    {
+      "price": 115540.34,
+      "quantity": 1.26,
+      "order_count": 15
+    },
+    {
+      "price": 115597.97,
+      "quantity": 1.35,
+      "order_count": 16
+    },
+    {
+      "price": 115655.59,
+      "quantity": 1.44,
+      "order_count": 17
+    },
+    {
+      "price": 115713.22,
+      "quantity": 1.53,
+      "order_count": 18
+    },
+    {
+      "price": 115770.84,
+      "quantity": 1.62,
+      "order_count": 19
+    },
+    {
+      "price": 115828.47,
+      "quantity": 1.71,
+      "order_count": 20
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "symbol": "BTC",
+  "timestamp": "2021-11-09T14:00:00Z",
+  "description": "Bitcoin near ATH (~$69k) - extreme greed, PCR below 0.4",
+  "put_volume": 8450.2,
+  "call_volume": 28650.8,
+  "put_call_ratio": 0.295,
+  "put_open_interest": 32100.0,
+  "call_open_interest": 145200.0,
+  "total_open_interest": 177300.0,
+  "implied_volatility": 0.58,
+  "iv_rank": 22.3,
+  "max_pain": 62000.0,
+  "gamma_exposure": 285000000.0
+}

@@ -1,0 +1,220 @@
+# MFT Trading Bot - Paper Trading Configuration
+# This configuration is for testing strategies without real money
+# Copy to paper.yaml and customize as needed
+
+# =============================================================================
+# TRADING MODE
+# =============================================================================
+mode: paper  # paper | live (NEVER use 'live' without extensive testing!)
+exchange: binance_testnet  # binance_testnet | binance
+
+# =============================================================================
+# RISK MANAGEMENT
+# =============================================================================
+risk:
+  # Maximum daily loss in USD before halting trading
+  max_daily_loss_usd: 100.0
+
+  # Maximum number of trades per day
+  max_trades_per_day: 20
+
+  # Maximum position size in USD
+  max_position_usd: 1000.0
+
+  # Maximum leverage (1 = no leverage, 10 = 10x)
+  max_leverage: 1
+
+  # Stop loss percentage (e.g., 0.02 = 2% stop loss)
+  default_stop_loss_pct: 0.02
+
+  # Take profit percentage (e.g., 0.03 = 3% take profit)
+  default_take_profit_pct: 0.03
+
+  # Kill switch file - trading stops if this file exists
+  kill_switch_file: ./STOP_TRADING
+
+# =============================================================================
+# STRATEGY CONFIGURATION
+# =============================================================================
+strategy:
+  # Strategy to use: rsi_divergence | ma_crossover | macd | bollinger | market_regime
+  name: rsi_divergence
+
+  # Strategy-specific parameters
+  params:
+    rsi_period: 14
+    rsi_overbought: 70
+    rsi_oversold: 30
+    lookback_candles: 20
+    min_divergence_strength: 0.6
+
+  # Signal filtering
+  signal_confirmation:
+    # Require options data confirmation
+    require_options_confirmation: false
+
+    # Require L2 order book confirmation
+    require_l2_confirmation: true
+
+    # Minimum liquidity score (0-100)
+    min_liquidity_score: 50.0
+
+    # Put-Call Ratio thresholds
+    pcr_bullish_threshold: 0.7  # Below this = bullish
+    pcr_bearish_threshold: 1.2  # Above this = bearish
+
+    # Order book imbalance threshold
+    ob_imbalance_threshold: 0.2  # Minimum imbalance to confirm signal
+
+    # Confidence adjustment factors
+    confidence_boost_factor: 1.2  # Multiply confidence when confirmed
+    confidence_penalty_factor: 0.7  # Multiply confidence when conflicted
+
+# =============================================================================
+# PORTFOLIO CONSTRUCTION
+# =============================================================================
+portfolio:
+  # Portfolio construction method: equal_weight | risk_parity | kelly
+  method: equal_weight
+
+  # Maximum number of concurrent positions
+  max_positions: 5
+
+  # Rebalance frequency in seconds (3600 = 1 hour)
+  rebalance_frequency_seconds: 3600
+
+# =============================================================================
+# DATA SOURCES
+# =============================================================================
+data:
+  # OHLCV data sources (in priority order)
+  ohlcv_sources:
+    - binance
+    - coingecko
+
+  # Minimum number of sources for consensus
+  min_consensus_sources: 2
+
+  # Quote data sources
+  quote_sources:
+    - binance
+    - coingecko
+
+  # On-chain data sources (optional)
+  # ⚠️  NOTE: Web3 APIs deprecated as of 2025-10-24
+  # See app/data/web3_signals.py for details and alternatives
+  web3_sources:
+    enabled: false  # Keep disabled until APIs are updated
+    chains:
+      - ethereum
+      - polygon
+
+  # Data aggregation settings
+  aggregation:
+    max_price_deviation_pct: 5.0  # Flag anomalies > 5% from median
+    max_price_range_pct: 10.0  # Reject if price range > 10%
+
+# =============================================================================
+# TRADING PARAMETERS
+# =============================================================================
+trading:
+  # Symbols to trade (list of trading pairs)
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+
+  # Timeframe for analysis: 1m, 5m, 15m, 1h, 4h, 1d
+  timeframe: 1h
+
+  # Minimum confidence to execute trade (0.0 - 1.0)
+  min_confidence: 0.7
+
+  # Order types: market | limit | stop_limit
+  default_order_type: limit
+
+  # Slippage tolerance for limit orders (0.001 = 0.1%)
+  slippage_tolerance: 0.001
+
+  # Position sizing method: fixed | percent_equity | risk_based
+  position_sizing: percent_equity
+
+  # Percentage of equity per trade (if using percent_equity)
+  equity_per_trade_pct: 0.1  # 10% of account per trade
+
+# =============================================================================
+# EXECUTION
+# =============================================================================
+execution:
+  # Order timeout in seconds
+  order_timeout: 60
+
+  # Retry failed orders
+  retry_on_failure: true
+
+  # Max retries
+  max_retries: 3
+
+  # Delay between retries (seconds)
+  retry_delay: 5
+
+  # Cancel unfilled limit orders after N seconds
+  cancel_unfilled_after: 300  # 5 minutes
+
+# =============================================================================
+# MONITORING & LOGGING
+# =============================================================================
+monitoring:
+  # Enable performance tracking
+  track_performance: true
+
+  # Performance lookback period (days)
+  performance_lookback_days: 30
+
+  # Enable trade fingerprinting
+  enable_fingerprinting: true
+
+  # Heartbeat interval (seconds) - logs "still alive" message
+  heartbeat_interval: 300  # 5 minutes
+
+  # Audit logging
+  audit_logging:
+    enabled: true
+    log_dir: ./logs/audit
+    rotate_daily: true
+
+# =============================================================================
+# BACKTESTING (Phase 2 - not yet implemented)
+# =============================================================================
+backtest:
+  enabled: false
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+  initial_capital: 10000.0
+
+# =============================================================================
+# NOTES
+# =============================================================================
+#
+# 1. **Start Conservative**: Use small position sizes and tight stop losses
+#    when first deploying a new strategy.
+#
+# 2. **Paper Trading**: Always test in paper trading mode for at least 2 weeks
+#    before considering live trading.
+#
+# 3. **Kill Switch**: To immediately stop trading, create the file specified
+#    in risk.kill_switch_file (default: ./STOP_TRADING)
+#
+# 4. **Risk Limits**: The bot will NEVER exceed the risk limits set above.
+#    If daily loss limit is hit, trading stops automatically.
+#
+# 5. **Validation**: The trading engine validates this config on startup.
+#    Invalid values will cause the bot to exit with an error.
+#
+# 6. **Live Trading**: To use live trading, you MUST:
+#    - Copy this to live.yaml (which is git-ignored)
+#    - Change mode to 'live'
+#    - Set exchange to 'binance'
+#    - Use BINANCE_API_KEY (not BINANCE_TESTNET_API_KEY)
+#    - Have extensively tested in paper mode first!
+#
+# =============================================================================

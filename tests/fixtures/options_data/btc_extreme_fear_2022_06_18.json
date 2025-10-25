@@ -1,0 +1,15 @@
+{
+  "symbol": "BTC",
+  "timestamp": "2022-06-18T12:00:00Z",
+  "description": "Bitcoin extreme fear during Terra/Luna collapse - PCR spike above 2.0",
+  "put_volume": 45230.5,
+  "call_volume": 18420.3,
+  "put_call_ratio": 2.456,
+  "put_open_interest": 125600.0,
+  "call_open_interest": 42300.0,
+  "total_open_interest": 167900.0,
+  "implied_volatility": 0.92,
+  "iv_rank": 98.5,
+  "max_pain": 19000.0,
+  "gamma_exposure": -125000000.0
+}

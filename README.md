@@ -49,13 +49,74 @@ MFT/
 
 ## Quick Start
 
-See [docs/guides/project-setup-checklist.md](docs/guides/project-setup-checklist.md) for complete setup instructions.
+### For Beginners (5-Minute Setup)
 
-**Phase 0 Week 1**:
-1. Provision VPS (NYC, <50ms to Binance)
-2. Run `scripts/setup_vps.sh`
-3. Record 24h L2 data: `python scripts/record_l2_data.py`
-4. Validate quality: `python scripts/validate_data.py`
+**1. Install Python 3.13+**
+```bash
+python3 --version  # Should be 3.13 or newer
+```
+
+**2. Clone & Setup**
+```bash
+git clone <your-repo-url>
+cd MFT
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**3. Get Free Testnet API Keys**
+- Visit: https://testnet.binancefuture.com
+- Sign up (no real money needed!)
+- Go to API Management → Create New Key
+- Copy your API Key (64 characters) and Secret (64 characters)
+
+**4. Set Environment Variables**
+```bash
+export BINANCE_TESTNET_API_KEY="your_64_character_key_here"
+export BINANCE_TESTNET_API_SECRET="your_64_character_secret_here"
+```
+
+**5. Download Sample Data**
+```bash
+python tools/fetch_binance_ohlcv.py \
+  --market spot \
+  --symbol BTCUSDT \
+  --interval 15m \
+  --days 7 \
+  --out data/btc_15m.csv
+```
+
+**6. Validate & Clean Data**
+```bash
+python tools/validate_clean_ohlcv.py \
+  data/btc_15m.csv \
+  --out data/btc_15m_clean.csv \
+  --fill drop \
+  --report data/quality_report.json
+```
+
+**7. Run Tests**
+```bash
+pytest tests/unit/ -v
+```
+
+### For Developers (Advanced Setup)
+
+See [docs/guides/project-setup-checklist.md](docs/guides/project-setup-checklist.md) for VPS setup, L2 data collection, and production deployment.
+
+### Troubleshooting
+
+**"ModuleNotFoundError: No module named 'requests'"**
+→ You forgot to activate the virtual environment. Run: `source .venv/bin/activate`
+
+**"Invalid API key format. Binance API keys should be 64 characters."**
+→ Make sure you copied the FULL key from Binance (it's very long!)
+
+**Need Help?**
+- Check [docs/guides/](docs/guides/) for detailed guides
+- See test report: [docs/TEST_REPORT_2025-10-23.md](docs/TEST_REPORT_2025-10-23.md)
+- Review risk management: Tests verify daily loss limits, position sizing, kill switches
 
 ## Documentation
 

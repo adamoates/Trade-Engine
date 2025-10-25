@@ -1,0 +1,15 @@
+{
+  "symbol": "BTC",
+  "timestamp": "2023-08-15T10:30:00Z",
+  "description": "Bitcoin consolidation period - neutral sentiment, PCR near 1.0",
+  "put_volume": 18230.4,
+  "call_volume": 19450.2,
+  "put_call_ratio": 0.937,
+  "put_open_interest": 68500.0,
+  "call_open_interest": 72100.0,
+  "total_open_interest": 140600.0,
+  "implied_volatility": 0.48,
+  "iv_rank": 45.2,
+  "max_pain": 29000.0,
+  "gamma_exposure": 15000000.0
+}

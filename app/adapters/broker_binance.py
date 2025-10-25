@@ -10,10 +10,15 @@ import time
 import hmac
 import hashlib
 from typing import Dict
-from datetime import datetime
 import requests
 from loguru import logger
 
+from app.constants import (
+    BINANCE_API_KEY_LENGTH,
+    BINANCE_API_SECRET_LENGTH,
+    BINANCE_DEFAULT_RECV_WINDOW_MS,
+    BINANCE_REQUEST_TIMEOUT_SECONDS
+)
 from app.engine.types import Broker, Position
 
 
@@ -41,13 +46,13 @@ class BinanceFuturesBroker(Broker):
     TESTNET_BASE = "https://testnet.binancefuture.com"
     LIVE_BASE = "https://fapi.binance.com"
 
-    def __init__(self, testnet: bool = True, recv_window: int = 5000):
+    def __init__(self, testnet: bool = True, recv_window: int = BINANCE_DEFAULT_RECV_WINDOW_MS):
         """
         Initialize broker.
 
         Args:
             testnet: If True, use testnet. If False, use live (DANGEROUS!)
-            recv_window: API request valid window (ms)
+            recv_window: API request valid window (ms), default 5000ms
         """
         self.testnet = testnet
         self.recv_window = recv_window
@@ -63,6 +68,24 @@ class BinanceFuturesBroker(Broker):
         if not self.api_key or not self.api_secret:
             raise BinanceError(
                 f"Missing API credentials. Set {env_prefix}_API_KEY and {env_prefix}_API_SECRET"
+            )
+
+        # Validate API key format
+        if len(self.api_key) != BINANCE_API_KEY_LENGTH:
+            testnet_url = "https://testnet.binancefuture.com/en/futures/BTCUSDT"
+            live_url = "https://www.binance.com/en/my/settings/api-management"
+            help_url = testnet_url if testnet else live_url
+
+            raise BinanceError(
+                f"Invalid API key format. Binance API keys should be {BINANCE_API_KEY_LENGTH} characters.\n"
+                f"Your key is {len(self.api_key)} characters.\n"
+                f"Get your API key from: {help_url}"
+            )
+
+        if len(self.api_secret) != BINANCE_API_SECRET_LENGTH:
+            raise BinanceError(
+                f"Invalid API secret format. Binance API secrets should be {BINANCE_API_SECRET_LENGTH} characters.\n"
+                f"Your secret is {len(self.api_secret)} characters."
             )
 
         logger.info(
@@ -98,12 +121,13 @@ class BinanceFuturesBroker(Broker):
             params["signature"] = self._sign(params)
 
         try:
+            timeout = BINANCE_REQUEST_TIMEOUT_SECONDS
             if method == "GET":
-                r = requests.get(url, headers=headers, params=params, timeout=10)
+                r = requests.get(url, headers=headers, params=params, timeout=timeout)
             elif method == "POST":
-                r = requests.post(url, headers=headers, params=params, timeout=10)
+                r = requests.post(url, headers=headers, params=params, timeout=timeout)
             elif method == "DELETE":
-                r = requests.delete(url, headers=headers, params=params, timeout=10)
+                r = requests.delete(url, headers=headers, params=params, timeout=timeout)
             else:
                 raise ValueError(f"Unsupported method: {method}")
 
