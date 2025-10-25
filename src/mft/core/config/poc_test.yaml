@@ -1,0 +1,152 @@
+# MFT Trading Bot - 4-Hour Proof of Concept Test
+# Stakeholder Test: $500 capital, $6 profit target ($1.50/hour)
+# Test Duration: 4 hours
+# Created: 2025-10-24
+
+mode: paper
+exchange: binance_testnet
+
+# Test Parameters
+test_config:
+  duration_hours: 4
+  capital_usd: 500.0
+  profit_target_usd: 6.0
+  target_hourly_rate: 1.50
+  required_return_pct: 1.2  # 6/500 = 1.2%
+
+# Risk Management - Optimized for $500 capital
+risk:
+  # Position limits (conservative for proof-of-concept)
+  max_position_usd: 150.0       # 30% of capital per position
+  max_total_exposure_usd: 400.0  # 80% max total exposure
+
+  # Profit target and stop loss
+  profit_target_usd: 6.0         # Test success threshold
+  max_daily_loss_usd: 15.0       # 3% max loss (-$15)
+
+  # Trade limits
+  max_trades_per_day: 20         # Generous limit for 4-hour test
+
+  # Position sizing
+  default_position_pct: 0.20     # 20% of capital per trade ($100)
+
+  # Kill switch
+  kill_switch_file: ./STOP_TRADING
+
+# Strategy Configuration - Aggressive for short timeframe
+strategy:
+  name: rsi_divergence  # Most responsive strategy
+
+  params:
+    rsi_period: 14
+    rsi_overbought: 70
+    rsi_oversold: 30
+    lookback_candles: 20
+    min_divergence_strength: 0.5  # Lower threshold for more signals
+
+  # Signal confirmation (L2 order book only - faster)
+  signal_confirmation:
+    require_options_confirmation: false  # Disable for speed
+    require_l2_confirmation: true        # Keep L2 for quality
+    min_liquidity_score: 40.0            # Lower threshold
+    ob_imbalance_threshold: 0.15         # More sensitive
+    confidence_boost_factor: 1.3
+    confidence_penalty_factor: 0.8
+
+# Trading Parameters
+trading:
+  # Symbols - BTC and ETH for volatility
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+
+  # Timeframe - 5 minute bars for responsiveness
+  timeframe: 5m
+
+  # Entry threshold
+  min_confidence: 0.65  # Lower for more opportunities
+
+  # Order execution
+  default_order_type: market  # Fast execution for POC
+  slippage_tolerance: 0.002   # 0.2% slippage allowance
+
+  # Position sizing
+  position_sizing: percent_equity
+  equity_per_trade_pct: 0.20  # 20% per trade
+
+# Take Profit / Stop Loss
+targets:
+  # Tighter targets for quick trades
+  default_take_profit_pct: 0.015  # 1.5% TP
+  default_stop_loss_pct: 0.010    # 1.0% SL
+
+  # Trailing stop (optional)
+  use_trailing_stop: true
+  trailing_stop_pct: 0.008        # 0.8% trailing
+
+# Execution
+execution:
+  order_timeout: 30
+  retry_on_failure: true
+  max_retries: 2
+  retry_delay: 3
+  cancel_unfilled_after: 60  # 1 minute for market orders
+
+# Data Sources
+data:
+  # OHLCV sources
+  ohlcv_sources:
+    - binance
+
+  min_consensus_sources: 1  # Single source OK for testnet
+
+  # Quote sources
+  quote_sources:
+    - binance
+
+  # Disable Web3 (deprecated APIs)
+  web3_sources:
+    enabled: false
+
+# Monitoring & Logging
+monitoring:
+  # Enable comprehensive tracking
+  track_performance: true
+  enable_fingerprinting: true
+
+  # Heartbeat every minute for 4-hour test
+  heartbeat_interval: 60
+
+  # Audit logging
+  audit_logging:
+    enabled: true
+    log_dir: ./logs/poc_test
+    rotate_daily: false
+
+# Logging
+logging:
+  level: INFO
+  audit_log: true
+
+# Performance Metrics (for reporting)
+metrics:
+  track_hourly_pnl: true
+  track_win_rate: true
+  track_sharpe_ratio: true
+  report_interval_minutes: 30  # Report every 30 min during test
+
+# Costs (Binance Futures)
+costs:
+  fee_bps: 4           # 0.04% (maker + taker)
+  spread_bps: 2        # Bid-ask spread
+  slippage_bps: 2      # Market impact
+
+# NOTES FOR STAKEHOLDERS:
+# 1. This is a TESTNET test - using fake money on Binance Testnet
+# 2. Target of $1.50/hour requires 0.3%/hour return rate
+# 3. Crypto markets are volatile - actual results will vary
+# 4. Bot will automatically stop if:
+#    - Profit target of $6 is reached
+#    - Loss exceeds $15 (3% of capital)
+#    - Kill switch file is created
+# 5. Real-time performance metrics logged every 30 minutes
