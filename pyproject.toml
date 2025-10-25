@@ -58,8 +58,8 @@ database = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/adamoates/MFT"
-Issues = "https://github.com/adamoates/MFT/issues"
+Homepage = "https://github.com/adamoates/Trade-Engine"
+Issues = "https://github.com/adamoates/Trade-Engine/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
