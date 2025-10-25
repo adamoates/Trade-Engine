@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-10-24T20:47:21.646944",
+  "iterations": 1000,
+  "benchmarks": [
+    {
+      "operation": "Order Book Update + Imbalance Calc",
+      "mean_ms": 0.05582638,
+      "median_ms": 0.055417,
+      "p95_ms": 0.05928989999999999,
+      "p99_ms": 0.06362375,
+      "min_ms": 0.053959,
+      "max_ms": 0.22675,
+      "iterations": 1000
+    },
+    {
+      "operation": "L2 Strategy Signal Generation",
+      "mean_ms": 0.000360163,
+      "median_ms": 0.000375,
+      "p95_ms": 0.000375,
+      "p99_ms": 0.00041699,
+      "min_ms": 0.000292,
+      "max_ms": 0.002458,
+      "iterations": 1000
+    },
+    {
+      "operation": "Full Cycle (Orderbook \u2192 Signal)",
+      "mean_ms": 0.07359582499999999,
+      "median_ms": 0.072708,
+      "p95_ms": 0.077542,
+      "p99_ms": 0.08299291,
+      "min_ms": 0.070416,
+      "max_ms": 0.268583,
+      "iterations": 1000
+    }
+  ]
+}
