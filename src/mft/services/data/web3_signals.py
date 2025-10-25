@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from loguru import logger
-from app.data.signal_normalizer import SignalNormalizer
+from mft.services.data.signal_normalizer import SignalNormalizer
 
 
 @dataclass
@@ -513,7 +513,7 @@ def get_web3_signal() -> Web3Signal:
         Web3Signal with current market conditions
 
     Example:
-        >>> from app.data.web3_signals import get_web3_signal
+        >>> from mft.services.data.web3_signals import get_web3_signal
         >>> signal = get_web3_signal()
         >>> if signal.signal == "BUY" and signal.confidence > 0.7:
         ...     print("Strong bullish signal from on-chain data")

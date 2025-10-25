@@ -34,7 +34,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import statistics
 
-from app.strategies.asset_class_adapter import AssetClass
+from mft.services.strategies.asset_class_adapter import AssetClass
 
 
 @dataclass

@@ -8,7 +8,7 @@ Simple but effective baseline strategy.
 from typing import List, Dict
 from loguru import logger
 
-from app.strategies.types import (
+from mft.services.strategies.types import (
     PortfolioConstructionModel,
     Insight,
     TargetPortfolio,

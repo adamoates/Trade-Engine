@@ -21,7 +21,7 @@ except ImportError:
     yf = None
     logger.warning("yfinance not installed. Install with: pip install yfinance")
 
-from app.data.types import (
+from mft.services.data.types import (
     DataSource,
     DataSourceType,
     AssetType,

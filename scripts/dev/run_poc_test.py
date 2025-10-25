@@ -42,11 +42,11 @@ from loguru import logger
 # Add app to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.adapters.broker_binance import BinanceBroker
-from app.strategies.rsi_divergence import RSIDivergenceStrategy
-from app.data.multi_source_ohlcv import MultiSourceOHLCV
-from app.data.signal_confirmation import SignalConfirmationFilter
-from app.engine.risk_manager import RiskManager
+from mft.services.adapters.broker_binance import BinanceBroker
+from mft.services.strategies.rsi_divergence import RSIDivergenceStrategy
+from mft.services.data.multi_source_ohlcv import MultiSourceOHLCV
+from mft.services.data.signal_confirmation import SignalConfirmationFilter
+from mft.core.engine.risk_manager import RiskManager
 
 
 @dataclass

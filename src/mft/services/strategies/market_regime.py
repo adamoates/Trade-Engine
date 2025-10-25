@@ -23,7 +23,7 @@ from enum import Enum
 from typing import List, Dict, Optional
 from loguru import logger
 
-from app.data.types import OHLCV
+from mft.services.data.types import OHLCV
 
 
 class MarketRegime(str, Enum):

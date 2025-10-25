@@ -15,8 +15,8 @@ from datetime import datetime, time
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
-from app.engine.risk_manager import RiskManager, RiskCheckResult
-from app.engine.types import Signal, Position
+from mft.core.engine.risk_manager import RiskManager, RiskCheckResult
+from mft.core.engine.types import Signal, Position
 
 
 class TestRiskManagerInit:

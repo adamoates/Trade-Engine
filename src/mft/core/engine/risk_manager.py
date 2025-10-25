@@ -16,13 +16,13 @@ from typing import Dict, Any
 from dataclasses import dataclass
 from loguru import logger
 
-from app.constants import (
+from mft.core.constants import (
     KILL_SWITCH_FILE_PATH,
     DEFAULT_MAX_DAILY_LOSS_USD,
     DEFAULT_MAX_TRADES_PER_DAY,
     DEFAULT_MAX_POSITION_USD
 )
-from app.engine.types import Signal, Position
+from mft.core.engine.types import Signal, Position
 
 
 @dataclass

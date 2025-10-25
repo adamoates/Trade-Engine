@@ -16,7 +16,7 @@ from typing import List, Optional
 from loguru import logger
 import requests
 
-from app.data.types import (
+from mft.services.data.types import (
     DataSource,
     DataSourceType,
     AssetType,

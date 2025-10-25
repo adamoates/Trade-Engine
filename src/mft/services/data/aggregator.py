@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import statistics
 from loguru import logger
 
-from app.data.types import (
+from mft.services.data.types import (
     DataSource,
     OHLCV,
     Quote,

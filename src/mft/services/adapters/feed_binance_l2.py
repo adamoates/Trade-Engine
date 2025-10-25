@@ -22,7 +22,7 @@ from sortedcontainers import SortedDict
 import websockets
 from loguru import logger
 
-from app.engine.types import DataFeed, Bar
+from mft.core.engine.types import DataFeed, Bar
 
 
 class BinanceL2Error(Exception):

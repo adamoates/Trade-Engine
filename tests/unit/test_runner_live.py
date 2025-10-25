@@ -2,9 +2,9 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from app.engine.runner_live import LiveRunner
-from app.engine.risk_manager import RiskManager, RiskCheckResult
-from app.engine.types import Signal, Position
+from mft.core.engine.runner_live import LiveRunner
+from mft.core.engine.risk_manager import RiskManager, RiskCheckResult
+from mft.core.engine.types import Signal, Position
 
 
 class TestRiskManager:
@@ -274,7 +274,7 @@ class TestLiveRunner:
         ))
 
         # Create a mock bar
-        from app.engine.types import Bar
+        from mft.core.engine.types import Bar
         bar = Bar(
             timestamp=1609459200000,
             open=50000.0,

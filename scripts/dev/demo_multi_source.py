@@ -20,11 +20,11 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from loguru import logger
-from app.data.types import AssetType
-from app.data.source_yahoo import YahooFinanceSource
-from app.data.source_coingecko import CoinGeckoSource
-from app.data.source_binance import BinanceDataSource
-from app.data.aggregator import DataAggregator, print_disclaimer
+from mft.services.data.types import AssetType
+from mft.services.data.source_yahoo import YahooFinanceSource
+from mft.services.data.source_coingecko import CoinGeckoSource
+from mft.services.data.source_binance import BinanceDataSource
+from mft.services.data.aggregator import DataAggregator, print_disclaimer
 
 
 def print_header(title: str):

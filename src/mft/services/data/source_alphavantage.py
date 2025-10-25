@@ -18,7 +18,7 @@ from loguru import logger
 import requests
 import os
 
-from app.data.types import (
+from mft.services.data.types import (
     DataSource,
     DataSourceType,
     AssetType,

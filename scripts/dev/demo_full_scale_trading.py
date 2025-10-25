@@ -24,8 +24,8 @@ from dataclasses import dataclass, field
 from loguru import logger
 import argparse
 
-from app.data.web3_signals import Web3DataSource, Web3Signal
-from app.data.signal_normalizer import SignalNormalizer
+from mft.services.data.web3_signals import Web3DataSource, Web3Signal
+from mft.services.data.signal_normalizer import SignalNormalizer
 
 # Configure logger
 logger.remove()

@@ -4,7 +4,7 @@ import hmac
 import hashlib
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from app.adapters.broker_binance import BinanceFuturesBroker, BinanceError
+from mft.services.adapters.broker_binance import BinanceFuturesBroker, BinanceError
 
 
 class TestBrokerSignature:
@@ -309,7 +309,7 @@ class TestBrokerOrderOperations:
             broker = BinanceFuturesBroker(testnet=True)
 
             # Mock positions to return a long position
-            from app.engine.types import Position
+            from mft.core.engine.types import Position
             mock_position = Position(
                 symbol="BTCUSDT",
                 side="long",
@@ -337,7 +337,7 @@ class TestBrokerOrderOperations:
         }):
             broker = BinanceFuturesBroker(testnet=True)
 
-            from app.engine.types import Position
+            from mft.core.engine.types import Position
             mock_position = Position(
                 symbol="ETHUSDT",
                 side="short",

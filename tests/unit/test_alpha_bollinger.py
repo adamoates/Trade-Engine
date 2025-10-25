@@ -2,9 +2,9 @@
 import pytest
 from datetime import datetime, timezone
 
-from app.data.types import OHLCV, DataSourceType
-from app.strategies.alpha_bollinger import BollingerAlpha
-from app.strategies.types import InsightDirection
+from mft.services.data.types import OHLCV, DataSourceType
+from mft.services.strategies.alpha_bollinger import BollingerAlpha
+from mft.services.strategies.types import InsightDirection
 
 
 class TestBollingerInit:

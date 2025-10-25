@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Optional
 from enum import Enum
 
-from app.data.types import OHLCV, Quote, DataSourceType, AssetType
+from mft.services.data.types import OHLCV, Quote, DataSourceType, AssetType
 
 
 class InsightDirection(Enum):

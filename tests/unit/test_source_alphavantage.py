@@ -4,13 +4,13 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch, MagicMock
 import requests
 
-from app.data.types import (
+from mft.services.data.types import (
     DataSourceType,
     AssetType,
     OHLCV,
     Quote
 )
-from app.data.source_alphavantage import AlphaVantageSource
+from mft.services.data.source_alphavantage import AlphaVantageSource
 
 
 class TestAlphaVantageInit:

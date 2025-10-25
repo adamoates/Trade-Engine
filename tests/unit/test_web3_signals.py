@@ -8,7 +8,7 @@ Can be run with --slow flag or mocked for fast unit tests.
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
-from app.data.web3_signals import (
+from mft.services.data.web3_signals import (
     Web3DataSource,
     GasData,
     LiquidityData,

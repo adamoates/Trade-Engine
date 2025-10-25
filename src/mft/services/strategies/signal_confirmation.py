@@ -21,8 +21,8 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from loguru import logger
 
-from app.data.types_microstructure import MarketMicrostructure, OptionsSnapshot, Level2Snapshot
-from app.strategies.types import Insight, InsightDirection
+from mft.services.data.types_microstructure import MarketMicrostructure, OptionsSnapshot, Level2Snapshot
+from mft.services.strategies.types import Insight, InsightDirection
 
 
 class SignalConfirmationFilter:

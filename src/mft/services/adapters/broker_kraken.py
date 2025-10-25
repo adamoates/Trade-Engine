@@ -17,7 +17,7 @@ from typing import Dict, Optional
 import requests
 from loguru import logger
 
-from app.engine.types import Broker, Position
+from mft.core.engine.types import Broker, Position
 
 
 class KrakenError(Exception):

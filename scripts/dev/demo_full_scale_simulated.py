@@ -21,7 +21,7 @@ from tools.demo_full_scale_trading import (
     datetime,
     timezone
 )
-from app.data.web3_signals import Web3DataSource, Web3Signal, GasData, LiquidityData, FundingRateData
+from mft.services.data.web3_signals import Web3DataSource, Web3Signal, GasData, LiquidityData, FundingRateData
 from unittest.mock import Mock
 import numpy as np
 

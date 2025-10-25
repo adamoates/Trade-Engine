@@ -53,7 +53,7 @@ import glob
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from loguru import logger
-from app.backtest import run_backtest, L2StrategyConfig, BacktestMetrics
+from mft.services.backtest import run_backtest, L2StrategyConfig, BacktestMetrics
 
 
 def parse_args():

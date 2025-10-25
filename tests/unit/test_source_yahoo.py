@@ -4,13 +4,13 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 
-from app.data.types import (
+from mft.services.data.types import (
     DataSourceType,
     AssetType,
     OHLCV,
     Quote
 )
-from app.data.source_yahoo import YahooFinanceSource
+from mft.services.data.source_yahoo import YahooFinanceSource
 
 
 class TestYahooFinanceInit:

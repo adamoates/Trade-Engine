@@ -18,15 +18,15 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "fixtures"))
 from fixture_loader import load_options_fixture, load_l2_fixture
 
-from app.strategies.signal_confirmation import SignalConfirmationFilter
-from app.strategies.types import Insight, InsightDirection, InsightType
-from app.data.types_microstructure import (
+from mft.services.strategies.signal_confirmation import SignalConfirmationFilter
+from mft.services.strategies.types import Insight, InsightDirection, InsightType
+from mft.services.data.types_microstructure import (
     MarketMicrostructure,
     OptionsSnapshot,
     Level2Snapshot,
     OrderBookLevel
 )
-from app.strategies.asset_class_adapter import AssetClass
+from mft.services.strategies.asset_class_adapter import AssetClass
 
 
 # Test fixtures using REAL historical data

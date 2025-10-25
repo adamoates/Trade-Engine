@@ -16,8 +16,8 @@ from datetime import datetime
 from typing import List, Dict, Optional
 from loguru import logger
 
-from app.data.types import OHLCV
-from app.strategies.types import (
+from mft.services.data.types import OHLCV
+from mft.services.strategies.types import (
     AlphaModel,
     Insight,
     InsightDirection,

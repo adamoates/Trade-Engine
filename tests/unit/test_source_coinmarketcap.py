@@ -5,12 +5,12 @@ from unittest.mock import Mock, patch, MagicMock
 import requests
 import time
 
-from app.data.types import (
+from mft.services.data.types import (
     DataSourceType,
     AssetType,
     Quote
 )
-from app.data.source_coinmarketcap import CoinMarketCapSource
+from mft.services.data.source_coinmarketcap import CoinMarketCapSource
 
 
 class TestCoinMarketCapInit:

@@ -7,7 +7,7 @@ Modules:
 - engine: Core backtesting engine that replays data through strategy
 
 Usage:
-    from app.backtest import run_backtest, L2StrategyConfig
+    from mft.services.backtest import run_backtest, L2StrategyConfig
     from decimal import Decimal
 
     results = run_backtest(
@@ -19,15 +19,15 @@ Usage:
     print(f"Total P&L: ${results.total_pnl:,.2f}")
 """
 
-from app.backtest.l2_data_loader import L2DataLoader, load_multiple_files
-from app.backtest.metrics import (
+from mft.services.backtest.l2_data_loader import L2DataLoader, load_multiple_files
+from mft.services.backtest.metrics import (
     Trade,
     BacktestMetrics,
     MetricsCalculator,
     format_metrics
 )
-from app.backtest.engine import BacktestEngine, run_backtest
-from app.strategies.alpha_l2_imbalance import L2StrategyConfig
+from mft.services.backtest.engine import BacktestEngine, run_backtest
+from mft.services.strategies.alpha_l2_imbalance import L2StrategyConfig
 
 __all__ = [
     "L2DataLoader",

@@ -18,7 +18,7 @@ from datetime import datetime
 from decimal import Decimal
 from loguru import logger
 
-from app.adapters.feed_binance_l2 import OrderBook
+from mft.services.adapters.feed_binance_l2 import OrderBook
 
 
 class L2DataLoader:

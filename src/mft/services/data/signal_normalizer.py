@@ -394,7 +394,7 @@ def normalize_signal(
         Normalized value in [-1.0, +1.0]
 
     Example:
-        >>> from app.data.signal_normalizer import normalize_signal
+        >>> from mft.services.data.signal_normalizer import normalize_signal
         >>> normalized = normalize_signal(150.0, "gas_price", method="zscore")
         >>> # Returns 0.0 on first call (no history)
     """
