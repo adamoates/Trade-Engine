@@ -4,7 +4,10 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import pytest
-from tools import validate_clean_ohlcv as VC
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts" / "dev"))
+import validate_clean_ohlcv as VC
 
 
 class TestReadCSV:

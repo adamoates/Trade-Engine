@@ -40,7 +40,7 @@ class TestWeb3DataSourceInit:
 class TestGasPrices:
     """Test gas price fetching from Etherscan."""
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_gas_prices_success(self, mock_session_class):
         """Test successful gas price fetch."""
         # Mock response
@@ -70,7 +70,7 @@ class TestGasPrices:
         assert gas.fast_gas_price == 35.0
         assert isinstance(gas.timestamp, datetime)
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_gas_prices_api_failure(self, mock_session_class):
         """Test gas price fetch with API failure."""
         mock_session = MagicMock()
@@ -85,7 +85,7 @@ class TestGasPrices:
 
         assert gas is None
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_gas_prices_timeout(self, mock_session_class):
         """Test gas price fetch with timeout."""
         import requests
@@ -103,7 +103,7 @@ class TestGasPrices:
 class TestDEXLiquidity:
     """Test DEX liquidity fetching from The Graph."""
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_dex_liquidity_success(self, mock_session_class):
         """Test successful liquidity fetch."""
         mock_response = MagicMock()
@@ -142,7 +142,7 @@ class TestDEXLiquidity:
 
         assert liquidity is None
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_dex_liquidity_graphql_error(self, mock_session_class):
         """Test liquidity fetch with GraphQL error."""
         mock_response = MagicMock()
@@ -164,7 +164,7 @@ class TestDEXLiquidity:
 class TestFundingRates:
     """Test funding rate fetching from dYdX."""
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_funding_rate_success(self, mock_session_class):
         """Test successful funding rate fetch."""
         mock_response = MagicMock()
@@ -190,7 +190,7 @@ class TestFundingRates:
         assert isinstance(funding.next_funding_time, datetime)
         assert isinstance(funding.timestamp, datetime)
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_funding_rate_negative(self, mock_session_class):
         """Test funding rate fetch with negative rate (bullish)."""
         mock_response = MagicMock()
@@ -211,7 +211,7 @@ class TestFundingRates:
 
         assert funding.funding_rate == -0.00250  # Negative = bullish
 
-    @patch('app.data.web3_signals.requests.Session')
+    @patch('mft.services.data.web3_signals.requests.Session')
     def test_get_funding_rate_api_failure(self, mock_session_class):
         """Test funding rate fetch with API failure."""
         mock_response = MagicMock()
@@ -423,7 +423,7 @@ class TestVolatilityDetection:
 class TestConvenienceFunction:
     """Test convenience helper function."""
 
-    @patch('app.data.web3_signals.Web3DataSource')
+    @patch('mft.services.data.web3_signals.Web3DataSource')
     def test_get_web3_signal(self, mock_source_class):
         """Test get_web3_signal convenience function."""
         mock_source = MagicMock()

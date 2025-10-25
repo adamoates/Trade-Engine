@@ -77,7 +77,7 @@ class TestCoinMarketCapInit:
 class TestCoinMarketCapFetchQuote:
     """Test real-time quote fetching."""
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_fetch_quote_returns_current_price(self, mock_get):
         """Test fetching current quote."""
         # ARRANGE
@@ -114,7 +114,7 @@ class TestCoinMarketCapFetchQuote:
         assert quote.volume_24h == 28000000000.0
         assert quote.source == DataSourceType.COINMARKETCAP
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_fetch_quote_api_error(self, mock_get):
         """Test handling of API error."""
         # ARRANGE
@@ -134,7 +134,7 @@ class TestCoinMarketCapFetchQuote:
         with pytest.raises(ValueError, match="API error"):
             source.fetch_quote("BTC")
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_fetch_quote_http_error(self, mock_get):
         """Test handling of HTTP errors."""
         # ARRANGE
@@ -148,7 +148,7 @@ class TestCoinMarketCapFetchQuote:
         with pytest.raises(requests.HTTPError):
             source.fetch_quote("BTC")
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_fetch_quote_uses_uppercase_symbol(self, mock_get):
         """Test symbol is converted to uppercase."""
         # ARRANGE
@@ -263,7 +263,7 @@ class TestCoinMarketCapNormalizeSymbol:
 class TestCoinMarketCapValidateConnection:
     """Test connection validation."""
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_validate_connection_success(self, mock_get):
         """Test successful connection validation."""
         # ARRANGE
@@ -289,7 +289,7 @@ class TestCoinMarketCapValidateConnection:
         # ASSERT
         assert result is True
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_validate_connection_http_error(self, mock_get):
         """Test connection validation with HTTP error."""
         # ARRANGE
@@ -305,7 +305,7 @@ class TestCoinMarketCapValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_validate_connection_api_error(self, mock_get):
         """Test connection validation with API error."""
         # ARRANGE
@@ -327,7 +327,7 @@ class TestCoinMarketCapValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_validate_connection_exception(self, mock_get):
         """Test connection validation with exception."""
         # ARRANGE
@@ -371,7 +371,7 @@ class TestCoinMarketCapResourceManagement:
 class TestCoinMarketCapRateLimiting:
     """Test rate limiting functionality."""
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_rate_limit_allows_under_minute_limit(self, mock_get):
         """Test requests succeed when under minute limit."""
         # ARRANGE
@@ -393,7 +393,7 @@ class TestCoinMarketCapRateLimiting:
         # ASSERT - No exception raised
         assert len(source._minute_calls) == 4
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_rate_limit_blocks_over_minute_limit(self, mock_get):
         """Test rate limit enforced for minute limit."""
         # ARRANGE
@@ -415,7 +415,7 @@ class TestCoinMarketCapRateLimiting:
         with pytest.raises(ValueError, match="Rate limit exceeded.*per minute"):
             source.fetch_quote("BTC")
 
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_rate_limit_blocks_over_day_limit(self, mock_get):
         """Test rate limit enforced for daily limit."""
         # ARRANGE
@@ -437,8 +437,8 @@ class TestCoinMarketCapRateLimiting:
         with pytest.raises(ValueError, match="Rate limit exceeded.*per day"):
             source.fetch_quote("BTC")
 
-    @patch('app.data.source_coinmarketcap.time.time')
-    @patch('app.data.source_coinmarketcap.requests.Session.get')
+    @patch('mft.services.data.source_coinmarketcap.time.time')
+    @patch('mft.services.data.source_coinmarketcap.requests.Session.get')
     def test_rate_limit_resets_after_minute(self, mock_get, mock_time):
         """Test minute rate limit resets after 60 seconds."""
         # ARRANGE

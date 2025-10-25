@@ -5,7 +5,10 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 import pytest
 import requests
-from tools import fetch_binance_ohlcv as FB
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts" / "dev"))
+import fetch_binance_ohlcv as FB
 
 
 class TestParsers:
@@ -181,7 +184,7 @@ class TestRequestKlines:
             return mock_success
 
         with patch("requests.get", side_effect=side_effect):
-            with patch("tools.fetch_binance_ohlcv.sleep_with_jitter"):
+            with patch("fetch_binance_ohlcv.sleep_with_jitter"):
                 # ACT
                 data, resp = FB.request_klines(FB.SPOT_BASE, "/api/v3/klines", {})
 
@@ -207,7 +210,7 @@ class TestRequestKlines:
             return mock_success
 
         with patch("requests.get", side_effect=side_effect):
-            with patch("tools.fetch_binance_ohlcv.sleep_with_jitter"):
+            with patch("fetch_binance_ohlcv.sleep_with_jitter"):
                 # ACT
                 data, resp = FB.request_klines(FB.SPOT_BASE, "/api/v3/klines", {})
 
@@ -233,8 +236,8 @@ class TestRequestKlines:
         mock_response.status_code = 429
 
         with patch("requests.get", return_value=mock_response):
-            with patch("tools.fetch_binance_ohlcv.sleep_with_jitter"):
-                with patch("tools.fetch_binance_ohlcv.MAX_RETRY", 3):
+            with patch("fetch_binance_ohlcv.sleep_with_jitter"):
+                with patch("fetch_binance_ohlcv.MAX_RETRY", 3):
                     # ACT & ASSERT
                     with pytest.raises(RuntimeError):
                         FB.request_klines(FB.SPOT_BASE, "/api/v3/klines", {})
@@ -263,7 +266,7 @@ class TestYieldKlines:
             return mock
 
         with patch("requests.get", side_effect=side_effect):
-            with patch("tools.fetch_binance_ohlcv.sleep_with_jitter"):  # Avoid sleep delays
+            with patch("fetch_binance_ohlcv.sleep_with_jitter"):  # Avoid sleep delays
                 # ACT
                 klines = list(FB.yield_klines(
                     "spot", "BTCUSDT", "1m",
@@ -305,7 +308,7 @@ class TestYieldKlines:
             return mock
 
         with patch("requests.get", side_effect=side_effect):
-            with patch("tools.fetch_binance_ohlcv.sleep_with_jitter"):
+            with patch("fetch_binance_ohlcv.sleep_with_jitter"):
                 # ACT
                 klines = list(FB.yield_klines(
                     "spot", "BTCUSDT", "1m",
@@ -330,7 +333,7 @@ class TestYieldKlines:
         mock_response.json.return_value = mock_data
 
         with patch("requests.get", return_value=mock_response):
-            with patch("tools.fetch_binance_ohlcv.sleep_with_jitter"):  # Avoid sleep delays
+            with patch("fetch_binance_ohlcv.sleep_with_jitter"):  # Avoid sleep delays
                 # ACT
                 klines = list(FB.yield_klines(
                     "spot", "BTCUSDT", "1m",
@@ -377,7 +380,7 @@ class TestYieldKlines:
             return mock
 
         with patch("requests.get", side_effect=side_effect) as mock_get:
-            with patch("tools.fetch_binance_ohlcv.sleep_with_jitter"):  # Avoid sleep delays
+            with patch("fetch_binance_ohlcv.sleep_with_jitter"):  # Avoid sleep delays
                 # ACT
                 list(FB.yield_klines(
                     "futures", "BTCUSDT", "1m",

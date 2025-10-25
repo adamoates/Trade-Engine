@@ -84,7 +84,7 @@ class TestBinanceInit:
 class TestBinanceFetchOHLCV:
     """Test OHLCV data fetching."""
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_returns_candles(self, mock_get):
         """Test fetching OHLCV returns correct data structure."""
         # ARRANGE
@@ -115,7 +115,7 @@ class TestBinanceFetchOHLCV:
         assert candles[0].source == DataSourceType.BINANCE
         assert candles[0].symbol == "BTCUSDT"
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_spot_uses_correct_endpoint(self, mock_get):
         """Test spot market uses correct API endpoint."""
         # ARRANGE
@@ -136,7 +136,7 @@ class TestBinanceFetchOHLCV:
         call_args = mock_get.call_args[0][0]
         assert "https://api.binance.com/api/v3/klines" in call_args
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_futures_uses_correct_endpoint(self, mock_get):
         """Test futures market uses correct API endpoint."""
         # ARRANGE
@@ -157,7 +157,7 @@ class TestBinanceFetchOHLCV:
         call_args = mock_get.call_args[0][0]
         assert "https://fapi.binance.com/fapi/v1/klines" in call_args
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_with_limit(self, mock_get):
         """Test limit parameter restricts returned candles."""
         # ARRANGE
@@ -178,7 +178,7 @@ class TestBinanceFetchOHLCV:
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs['params']['limit'] == 500
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_limits_to_1500_max(self, mock_get):
         """Test limit is capped at Binance's 1500 max."""
         # ARRANGE
@@ -210,7 +210,7 @@ class TestBinanceFetchOHLCV:
         with pytest.raises(ValueError, match="Unsupported interval"):
             source.fetch_ohlcv("BTCUSDT", "10m", start, end)
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_interval_mapping(self, mock_get):
         """Test interval is correctly mapped."""
         # ARRANGE
@@ -231,7 +231,7 @@ class TestBinanceFetchOHLCV:
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs['params']['interval'] == "1M"  # Binance uses 1M for monthly
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_normalizes_symbol(self, mock_get):
         """Test symbol is normalized to Binance format."""
         # ARRANGE
@@ -252,7 +252,7 @@ class TestBinanceFetchOHLCV:
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs['params']['symbol'] == "BTCUSDT"
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_http_error(self, mock_get):
         """Test handling of HTTP errors."""
         # ARRANGE
@@ -269,7 +269,7 @@ class TestBinanceFetchOHLCV:
         with pytest.raises(requests.HTTPError):
             source.fetch_ohlcv("BTCUSDT", "1d", start, end)
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_ohlcv_empty_response(self, mock_get):
         """Test handling of empty response."""
         # ARRANGE
@@ -293,7 +293,7 @@ class TestBinanceFetchOHLCV:
 class TestBinanceFetchQuote:
     """Test real-time quote fetching."""
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_quote_returns_current_price(self, mock_get):
         """Test fetching current quote."""
         # ARRANGE
@@ -330,7 +330,7 @@ class TestBinanceFetchQuote:
         assert quote.volume_24h == 25000.00
         assert quote.source == DataSourceType.BINANCE
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_quote_handles_missing_book_ticker(self, mock_get):
         """Test quote fetching when book ticker fails."""
         # ARRANGE
@@ -360,7 +360,7 @@ class TestBinanceFetchQuote:
         assert quote.bid is None
         assert quote.ask is None
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_quote_http_error(self, mock_get):
         """Test handling of HTTP errors."""
         # ARRANGE
@@ -374,7 +374,7 @@ class TestBinanceFetchQuote:
         with pytest.raises(requests.HTTPError):
             source.fetch_quote("BTCUSDT")
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_fetch_quote_normalizes_symbol(self, mock_get):
         """Test symbol is normalized."""
         # ARRANGE
@@ -493,7 +493,7 @@ class TestBinanceNormalizeSymbol:
 class TestBinanceValidateConnection:
     """Test connection validation."""
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_validate_connection_success_spot(self, mock_get):
         """Test successful connection validation for spot."""
         # ARRANGE
@@ -511,7 +511,7 @@ class TestBinanceValidateConnection:
         call_args = mock_get.call_args[0][0]
         assert "/api/v3/ping" in call_args
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_validate_connection_success_futures(self, mock_get):
         """Test successful connection validation for futures."""
         # ARRANGE
@@ -529,7 +529,7 @@ class TestBinanceValidateConnection:
         call_args = mock_get.call_args[0][0]
         assert "/fapi/v1/ping" in call_args
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_validate_connection_failure(self, mock_get):
         """Test connection validation failure."""
         # ARRANGE
@@ -545,7 +545,7 @@ class TestBinanceValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('app.data.source_binance.requests.Session.get')
+    @patch('mft.services.data.source_binance.requests.Session.get')
     def test_validate_connection_exception(self, mock_get):
         """Test connection validation with exception."""
         # ARRANGE
