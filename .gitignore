@@ -33,6 +33,8 @@ env/
 htmlcov/
 .tox/
 .hypothesis/
+.ruff_cache/
+.mypy_cache/
 
 # IDEs
 .vscode/
@@ -66,3 +68,12 @@ credentials.json
 # Live trading config (contains real API keys, positions, etc.)
 app/config/live.yaml
 config/live.yaml
+src/mft/core/config/live.yaml
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Data directories
+data/
+!data/.gitkeep

@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # MFT Trading Engine
+  mft-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mft-trading-engine
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./src/mft/core/config:/app/src/mft/core/config:ro
+    networks:
+      - mft-network
+    # Uncomment for live trading
+    # command: python -m mft.core.engine.runner_live --config /app/src/mft/core/config/live.yaml
+
+  # MFT API Server (Phase 3)
+  # mft-api:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: mft-api-server
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #     - LOG_LEVEL=INFO
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - ./logs:/app/logs:ro
+  #   networks:
+  #     - mft-network
+  #   depends_on:
+  #     - mft-database
+  #   command: uvicorn mft.api.main:app --host 0.0.0.0 --port 8000
+
+  # PostgreSQL Database (Phase 2)
+  # mft-database:
+  #   image: postgres:16-alpine
+  #   container_name: mft-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: mft_trading
+  #     POSTGRES_USER: mft_user
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - mft-network
+  #   ports:
+  #     - "5432:5432"
+
+  # Redis Cache (optional, for API caching)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: mft-redis
+  #   restart: unless-stopped
+  #   networks:
+  #     - mft-network
+  #   ports:
+  #     - "6379:6379"
+
+networks:
+  mft-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
