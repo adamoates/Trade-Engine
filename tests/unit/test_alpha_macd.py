@@ -2,9 +2,9 @@
 import pytest
 from datetime import datetime, timezone
 
-from app.data.types import OHLCV, DataSourceType
-from app.strategies.alpha_macd import MACDAlpha
-from app.strategies.types import InsightDirection
+from trade_engine.services.data.types import OHLCV, DataSourceType
+from trade_engine.domain.strategies.alpha_macd import MACDAlpha
+from trade_engine.domain.strategies.types import InsightDirection
 
 
 class TestMACDInit:

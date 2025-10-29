@@ -4,13 +4,13 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 import requests
 
-from app.data.types import (
+from trade_engine.services.data.types import (
     DataSourceType,
     AssetType,
     OHLCV,
     Quote
 )
-from app.data.source_coingecko import CoinGeckoSource
+from trade_engine.adapters.data_sources.coingecko import CoinGeckoSource
 
 
 class TestCoinGeckoInit:
@@ -62,7 +62,7 @@ class TestCoinGeckoInit:
 class TestCoinGeckoFetchOHLCV:
     """Test OHLCV data fetching."""
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_ohlcv_returns_candles(self, mock_get):
         """Test fetching OHLCV returns correct data structure."""
         # ARRANGE
@@ -98,7 +98,7 @@ class TestCoinGeckoFetchOHLCV:
         assert candles[0].high == candles[0].close
         assert candles[0].low == candles[0].close
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_ohlcv_with_limit(self, mock_get):
         """Test limit parameter restricts returned candles."""
         # ARRANGE
@@ -132,7 +132,7 @@ class TestCoinGeckoFetchOHLCV:
         with pytest.raises(ValueError, match="CoinGecko only supports intervals"):
             source.fetch_ohlcv("bitcoin", "5m", start, end)
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_ohlcv_daily_interval(self, mock_get):
         """Test daily interval is correctly mapped."""
         # ARRANGE
@@ -156,7 +156,7 @@ class TestCoinGeckoFetchOHLCV:
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs['params']['interval'] == "daily"
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_ohlcv_hourly_interval(self, mock_get):
         """Test hourly interval is correctly mapped."""
         # ARRANGE
@@ -180,7 +180,7 @@ class TestCoinGeckoFetchOHLCV:
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs['params']['interval'] == "hourly"
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_ohlcv_http_error(self, mock_get):
         """Test handling of HTTP errors."""
         # ARRANGE
@@ -201,7 +201,7 @@ class TestCoinGeckoFetchOHLCV:
 class TestCoinGeckoFetchQuote:
     """Test real-time quote fetching."""
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_quote_returns_current_price(self, mock_get):
         """Test fetching current quote."""
         # ARRANGE
@@ -228,7 +228,7 @@ class TestCoinGeckoFetchQuote:
         assert quote.timestamp == 1640000000 * 1000
         assert quote.source == DataSourceType.COINGECKO
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_quote_no_coin_data(self, mock_get):
         """Test error when coin not found."""
         # ARRANGE
@@ -243,7 +243,7 @@ class TestCoinGeckoFetchQuote:
         with pytest.raises(ValueError, match="No data for"):
             source.fetch_quote("invalid-coin")
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_quote_http_error(self, mock_get):
         """Test handling of HTTP errors."""
         # ARRANGE
@@ -257,7 +257,7 @@ class TestCoinGeckoFetchQuote:
         with pytest.raises(requests.HTTPError):
             source.fetch_quote("bitcoin")
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_fetch_quote_uses_correct_params(self, mock_get):
         """Test API call parameters."""
         # ARRANGE
@@ -364,7 +364,7 @@ class TestCoinGeckoNormalizeSymbol:
 class TestCoinGeckoValidateConnection:
     """Test connection validation."""
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_validate_connection_success(self, mock_get):
         """Test successful connection validation."""
         # ARRANGE
@@ -381,7 +381,7 @@ class TestCoinGeckoValidateConnection:
         assert result is True
         assert "/ping" in mock_get.call_args[0][0]
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_validate_connection_failure(self, mock_get):
         """Test connection validation failure."""
         # ARRANGE
@@ -397,7 +397,7 @@ class TestCoinGeckoValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('app.data.source_coingecko.requests.Session.get')
+    @patch('trade_engine.services.data.source_coingecko.requests.Session.get')
     def test_validate_connection_exception(self, mock_get):
         """Test connection validation with exception."""
         # ARRANGE

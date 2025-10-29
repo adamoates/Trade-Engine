@@ -4,13 +4,13 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch, MagicMock
 import requests
 
-from app.data.types import (
+from trade_engine.services.data.types import (
     DataSourceType,
     AssetType,
     OHLCV,
     Quote
 )
-from app.data.source_alphavantage import AlphaVantageSource
+from trade_engine.adapters.data_sources.alphavantage import AlphaVantageSource
 
 
 class TestAlphaVantageInit:
@@ -78,7 +78,7 @@ class TestAlphaVantageInit:
 class TestAlphaVantageFetchOHLCV:
     """Test OHLCV data fetching."""
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_daily_returns_candles(self, mock_get):
         """Test fetching daily OHLCV."""
         # ARRANGE
@@ -120,7 +120,7 @@ class TestAlphaVantageFetchOHLCV:
         assert candles[0].volume == 143301900
         assert candles[0].source == DataSourceType.ALPHA_VANTAGE
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_intraday_returns_candles(self, mock_get):
         """Test fetching intraday OHLCV."""
         # ARRANGE
@@ -151,7 +151,7 @@ class TestAlphaVantageFetchOHLCV:
         assert len(candles) == 1
         assert candles[0].open == 129.50
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_uses_correct_function(self, mock_get):
         """Test correct API function is called for each interval."""
         # ARRANGE
@@ -172,7 +172,7 @@ class TestAlphaVantageFetchOHLCV:
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs['params']['function'] == "TIME_SERIES_DAILY"
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_invalid_interval(self, mock_get):
         """Test error on unsupported interval."""
         # ARRANGE
@@ -184,7 +184,7 @@ class TestAlphaVantageFetchOHLCV:
         with pytest.raises(ValueError, match="Unsupported interval"):
             source.fetch_ohlcv("AAPL", "2m", start, end)
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_api_error(self, mock_get):
         """Test handling of API error messages."""
         # ARRANGE
@@ -204,7 +204,7 @@ class TestAlphaVantageFetchOHLCV:
         with pytest.raises(ValueError, match="API error"):
             source.fetch_ohlcv("INVALID", "1d", start, end)
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_rate_limit(self, mock_get):
         """Test handling of rate limit."""
         # ARRANGE
@@ -226,7 +226,7 @@ class TestAlphaVantageFetchOHLCV:
         # ASSERT - Returns empty list when rate limited
         assert candles == []
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_filters_by_date_range(self, mock_get):
         """Test date range filtering."""
         # ARRANGE
@@ -253,7 +253,7 @@ class TestAlphaVantageFetchOHLCV:
         assert len(candles) == 1
         assert candles[0].close == 105
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_ohlcv_http_error(self, mock_get):
         """Test handling of HTTP errors."""
         # ARRANGE
@@ -274,7 +274,7 @@ class TestAlphaVantageFetchOHLCV:
 class TestAlphaVantageFetchQuote:
     """Test real-time quote fetching."""
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_quote_returns_current_price(self, mock_get):
         """Test fetching current quote."""
         # ARRANGE
@@ -300,7 +300,7 @@ class TestAlphaVantageFetchQuote:
         assert quote.volume_24h == 50000000
         assert quote.source == DataSourceType.ALPHA_VANTAGE
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_quote_api_error(self, mock_get):
         """Test handling of API error."""
         # ARRANGE
@@ -317,7 +317,7 @@ class TestAlphaVantageFetchQuote:
         with pytest.raises(ValueError, match="API error"):
             source.fetch_quote("INVALID")
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_quote_rate_limit(self, mock_get):
         """Test handling of rate limit."""
         # ARRANGE
@@ -334,7 +334,7 @@ class TestAlphaVantageFetchQuote:
         with pytest.raises(ValueError, match="rate limit"):
             source.fetch_quote("AAPL")
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_fetch_quote_empty_data(self, mock_get):
         """Test handling of empty quote data."""
         # ARRANGE
@@ -425,7 +425,7 @@ class TestAlphaVantageNormalizeSymbol:
 class TestAlphaVantageValidateConnection:
     """Test connection validation."""
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_validate_connection_success(self, mock_get):
         """Test successful connection validation."""
         # ARRANGE
@@ -447,7 +447,7 @@ class TestAlphaVantageValidateConnection:
         # ASSERT
         assert result is True
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_validate_connection_http_error(self, mock_get):
         """Test connection validation with HTTP error."""
         # ARRANGE
@@ -463,7 +463,7 @@ class TestAlphaVantageValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_validate_connection_api_error(self, mock_get):
         """Test connection validation with API error."""
         # ARRANGE
@@ -482,7 +482,7 @@ class TestAlphaVantageValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_validate_connection_rate_limit(self, mock_get):
         """Test connection validation with rate limit."""
         # ARRANGE
@@ -501,7 +501,7 @@ class TestAlphaVantageValidateConnection:
         # ASSERT
         assert result is False
 
-    @patch('app.data.source_alphavantage.requests.Session.get')
+    @patch('trade_engine.services.data.source_alphavantage.requests.Session.get')
     def test_validate_connection_exception(self, mock_get):
         """Test connection validation with exception."""
         # ARRANGE

@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from app.data.types_microstructure import OptionsSnapshot, Level2Snapshot, OrderBookLevel
+from trade_engine.services.data.types_microstructure import OptionsSnapshot, Level2Snapshot, OrderBookLevel
 
 
 FIXTURES_DIR = Path(__file__).parent

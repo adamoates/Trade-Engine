@@ -35,7 +35,7 @@ def mock_binance_api():
 @pytest.fixture
 def sample_bar():
     """Sample OHLCV bar for testing."""
-    from app.engine.types import Bar
+    from trade_engine.core.types import Bar
 
     return Bar(
         timestamp=int(datetime(2025, 1, 1, 12, 0).timestamp() * 1000),
@@ -52,7 +52,7 @@ def sample_bar():
 @pytest.fixture
 def sample_signal():
     """Sample trading signal for testing."""
-    from app.engine.types import Signal
+    from trade_engine.core.types import Signal
 
     return Signal(
         symbol="BTCUSDT",

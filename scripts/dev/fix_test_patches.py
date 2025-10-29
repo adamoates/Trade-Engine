@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Fix @patch() decorators in test files to use new mft.* paths."""
+
+import re
+from pathlib import Path
+
+# Patch mapping rules (handle both single and double quotes)
+PATCH_MAPPINGS = [
+    # Double quotes
+    (r'@patch\("app\.data\.', r'@patch("trade_engine.services.data.'),
+    (r'@patch\("app\.engine\.', r'@patch("trade_engine.core.engine.'),
+    (r'@patch\("app\.strategies\.', r'@patch("trade_engine.services.strategies.'),
+    (r'@patch\("app\.adapters\.', r'@patch("trade_engine.services.adapters.'),
+    (r'@patch\("app\.', r'@patch("trade_engine.'),
+    (r'patch\("app\.data\.', r'patch("trade_engine.services.data.'),
+    (r'patch\("app\.engine\.', r'patch("trade_engine.core.engine.'),
+    (r'patch\("app\.strategies\.', r'patch("trade_engine.services.strategies.'),
+    (r'patch\("app\.adapters\.', r'patch("trade_engine.services.adapters.'),
+    (r'patch\("app\.', r'patch("trade_engine.'),
+    # Single quotes
+    (r"@patch\('app\.data\.", r"@patch('trade_engine.services.data."),
+    (r"@patch\('app\.engine\.", r"@patch('trade_engine.core.engine."),
+    (r"@patch\('app\.strategies\.", r"@patch('trade_engine.services.strategies."),
+    (r"@patch\('app\.adapters\.", r"@patch('trade_engine.services.adapters."),
+    (r"@patch\('app\.", r"@patch('trade_engine."),
+    (r"patch\('app\.data\.", r"patch('trade_engine.services.data."),
+    (r"patch\('app\.engine\.", r"patch('trade_engine.core.engine."),
+    (r"patch\('app\.strategies\.", r"patch('trade_engine.services.strategies."),
+    (r"patch\('app\.adapters\.", r"patch('trade_engine.services.adapters."),
+    (r"patch\('app\.", r"patch('trade_engine."),
+]
+
+
+def update_file(file_path: Path) -> bool:
+    """Update patch decorators in a single file."""
+    content = file_path.read_text()
+    original = content
+
+    for pattern, replacement in PATCH_MAPPINGS:
+        content = re.sub(pattern, replacement, content)
+
+    if content != original:
+        file_path.write_text(content)
+        return True
+    return False
+
+
+def main():
+    root = Path(__file__).parent.parent.parent
+    tests_dir = root / "tests"
+
+    updated_files = []
+    for test_file in tests_dir.rglob("test_*.py"):
+        if update_file(test_file):
+            updated_files.append(test_file.relative_to(root))
+
+    print(f"✓ Updated {len(updated_files)} test files:")
+    for f in updated_files:
+        print(f"  - {f}")
+
+
+if __name__ == "__main__":
+    main()

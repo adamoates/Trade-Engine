@@ -2,7 +2,7 @@
 import pytest
 from datetime import datetime, timezone
 
-from app.strategies.types import (
+from trade_engine.domain.strategies.types import (
     Insight,
     InsightDirection,
     InsightType,

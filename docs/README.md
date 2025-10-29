@@ -1,6 +1,8 @@
-# MFT Bot Documentation
+# Trade Engine Documentation
 
 This directory contains all project documentation organized by purpose and use case.
+
+> **📖 New to the project?** Start with [documentation-guide.md](reference/documentation-guide.md) to understand where to find everything.
 
 ## Documentation Structure
 
@@ -25,10 +27,12 @@ docs/
 ## Quick Start
 
 ### New to the Project?
-1. Read: **CLAUDE.md** (project root) - Project overview and critical rules
-2. Read: **ROADMAP.md** (project root) - Development phases and current status
-3. Follow: **guides/project-setup-checklist.md** - Set up your environment
-4. Study: **guides/development-workflow.md** - Learn daily development practices
+1. Read: **[../README.md](../README.md)** - Project overview and quick start
+2. Read: **[../.claude/CLAUDE.md](../.claude/CLAUDE.md)** - Critical rules and coding standards
+3. Read: **[../ROADMAP.md](../ROADMAP.md)** - Development phases and current status
+4. Follow: **[guides/project-setup-checklist.md](guides/project-setup-checklist.md)** - Set up your environment
+5. Study: **[guides/development-workflow.md](guides/development-workflow.md)** - Daily development practices
+6. Learn: **[guides/git-workflow.md](guides/git-workflow.md)** - Git branching and PR process
 
 ### Setting Up CI/CD?
 1. Quick start: **guides/ci-cd-setup.md**

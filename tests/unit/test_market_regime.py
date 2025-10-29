@@ -2,8 +2,8 @@
 import pytest
 from enum import Enum
 
-from app.data.types import OHLCV, DataSourceType
-from app.strategies.market_regime import MarketRegimeDetector, MarketRegime
+from trade_engine.services.data.types import OHLCV, DataSourceType
+from trade_engine.domain.strategies.market_regime import MarketRegimeDetector, MarketRegime
 
 
 class TestMarketRegime:
