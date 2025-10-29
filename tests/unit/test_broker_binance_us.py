@@ -95,7 +95,7 @@ class TestSignature:
 class TestBuyOrder:
     """Test BUY order placement (open long position)."""
 
-    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -122,7 +122,7 @@ class TestBuyOrder:
         assert order_id == "12345678"
         mock_post.assert_called_once()
 
-    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -146,7 +146,7 @@ class TestBuyOrder:
         assert params["quantity"] == "0.00123456"
         assert isinstance(params["quantity"], str)
 
-    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -166,7 +166,7 @@ class TestBuyOrder:
         with pytest.raises(BinanceUSError, match="HTTP 400"):
             broker.buy(symbol="BTCUSDT", qty=Decimal("0.001"))
 
-    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -187,7 +187,7 @@ class TestBuyOrder:
 class TestSellOrder:
     """Test SELL order placement (close long position, NOT short)."""
 
-    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -218,7 +218,7 @@ class TestSellOrder:
         params = call_args[1]["params"]
         assert params["side"] == "SELL"
 
-    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -246,8 +246,8 @@ class TestSellOrder:
 class TestCloseAll:
     """Test close_all() - sell all holdings for a symbol."""
 
-    @patch("app.adapters.broker_binance_us.requests.post")
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -287,8 +287,8 @@ class TestCloseAll:
         assert params["side"] == "SELL"
         assert params["quantity"] == "0.5"  # Total BTC holdings
 
-    @patch("app.adapters.broker_binance_us.requests.post")
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.post")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -315,7 +315,7 @@ class TestCloseAll:
 class TestPositions:
     """Test position tracking (holdings in spot trading)."""
 
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -369,7 +369,7 @@ class TestPositions:
         assert eth_pos.symbol == "ETHUSDT"
         assert eth_pos.qty == Decimal("5.0")
 
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -392,7 +392,7 @@ class TestPositions:
         # Should return empty dict (USDT is quote currency, skipped)
         assert len(positions) == 0
 
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -419,7 +419,7 @@ class TestPositions:
 class TestBalance:
     """Test account balance queries."""
 
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -444,7 +444,7 @@ class TestBalance:
         assert isinstance(balance, Decimal)
         assert balance == Decimal("12345.67")
 
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -467,7 +467,7 @@ class TestBalance:
         # Should return 0
         assert balance == Decimal("0")
 
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
@@ -491,7 +491,7 @@ class TestBalance:
 class TestRequestMethod:
     """Test internal _request method."""
 
-    @patch("app.adapters.broker_binance_us.requests.get")
+    @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
