@@ -11,7 +11,7 @@ from typing import Any
 from loguru import logger
 
 from trade_engine.core.constants import AUDIT_LOG_DIR, AUDIT_LOG_PREFIX, DATE_FORMAT_YYYY_MM_DD
-from trade_engine.core.engine.types import Bar, Signal
+from trade_engine.core.types import Bar, Signal
 
 
 class AuditLogger:

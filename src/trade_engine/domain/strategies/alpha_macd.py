@@ -23,7 +23,7 @@ from typing import List, Dict, Optional
 from loguru import logger
 
 from trade_engine.services.data.types import OHLCV
-from trade_engine.services.strategies.types import (
+from trade_engine.domain.strategies.types import (
     AlphaModel,
     Insight,
     InsightDirection,

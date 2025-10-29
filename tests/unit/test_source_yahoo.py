@@ -10,7 +10,7 @@ from trade_engine.services.data.types import (
     OHLCV,
     Quote
 )
-from trade_engine.services.data.source_yahoo import YahooFinanceSource
+from trade_engine.adapters.data_sources.yahoo import YahooFinanceSource
 
 
 class TestYahooFinanceInit:

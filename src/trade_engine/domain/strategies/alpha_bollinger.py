@@ -23,7 +23,7 @@ from loguru import logger
 import math
 
 from trade_engine.services.data.types import OHLCV
-from trade_engine.services.strategies.types import (
+from trade_engine.domain.strategies.types import (
     AlphaModel,
     Insight,
     InsightDirection,

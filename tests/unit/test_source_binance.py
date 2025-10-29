@@ -10,7 +10,7 @@ from trade_engine.services.data.types import (
     OHLCV,
     Quote
 )
-from trade_engine.services.data.source_binance import BinanceDataSource
+from trade_engine.adapters.data_sources.binance import BinanceDataSource
 
 
 class TestBinanceInit:

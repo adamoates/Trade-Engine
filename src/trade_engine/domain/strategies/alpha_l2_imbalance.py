@@ -21,8 +21,8 @@ from typing import Optional
 from dataclasses import dataclass
 from loguru import logger
 
-from trade_engine.core.engine.types import Strategy, Bar, Signal
-from trade_engine.services.adapters.feed_binance_l2 import BinanceFuturesL2Feed, OrderBook
+from trade_engine.core.types import Strategy, Bar, Signal
+from trade_engine.adapters.feeds.binance_l2 import BinanceFuturesL2Feed, OrderBook
 
 
 @dataclass

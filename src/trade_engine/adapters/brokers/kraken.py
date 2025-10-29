@@ -17,7 +17,7 @@ from typing import Dict, Optional
 import requests
 from loguru import logger
 
-from trade_engine.core.engine.types import Broker, Position
+from trade_engine.core.types import Broker, Position
 
 
 class KrakenError(Exception):

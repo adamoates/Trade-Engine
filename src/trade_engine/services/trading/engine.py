@@ -18,9 +18,9 @@ from typing import Dict, Any
 from loguru import logger
 
 from trade_engine.core.constants import EXIT_SUCCESS, EXIT_FAILURE, EXIT_SIGINT
-from trade_engine.core.engine.types import DataFeed, Broker, Strategy, Bar
-from trade_engine.core.engine.risk_manager import RiskManager
-from trade_engine.core.engine.audit_logger import AuditLogger
+from trade_engine.core.types import DataFeed, Broker, Strategy, Bar
+from trade_engine.domain.risk.risk_manager import RiskManager
+from trade_engine.services.audit.logger import AuditLogger
 
 
 class LiveRunner:

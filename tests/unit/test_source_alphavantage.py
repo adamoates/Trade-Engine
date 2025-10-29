@@ -10,7 +10,7 @@ from trade_engine.services.data.types import (
     OHLCV,
     Quote
 )
-from trade_engine.services.data.source_alphavantage import AlphaVantageSource
+from trade_engine.adapters.data_sources.alphavantage import AlphaVantageSource
 
 
 class TestAlphaVantageInit:

@@ -34,7 +34,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import statistics
 
-from trade_engine.services.strategies.asset_class_adapter import AssetClass
+from trade_engine.domain.strategies.asset_class_adapter import AssetClass
 
 
 @dataclass

@@ -22,7 +22,7 @@ from trade_engine.core.constants import (
     DEFAULT_MAX_TRADES_PER_DAY,
     DEFAULT_MAX_POSITION_USD
 )
-from trade_engine.core.engine.types import Signal, Position
+from trade_engine.core.types import Signal, Position
 
 
 @dataclass

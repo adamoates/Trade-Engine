@@ -8,7 +8,7 @@ Uses real market data but executes orders locally without exchange connection.
 from typing import Dict
 from loguru import logger
 
-from trade_engine.core.engine.types import Broker, Position
+from trade_engine.core.types import Broker, Position
 
 
 class SimulatedBroker(Broker):

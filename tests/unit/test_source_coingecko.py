@@ -10,7 +10,7 @@ from trade_engine.services.data.types import (
     OHLCV,
     Quote
 )
-from trade_engine.services.data.source_coingecko import CoinGeckoSource
+from trade_engine.adapters.data_sources.coingecko import CoinGeckoSource
 
 
 class TestCoinGeckoInit:

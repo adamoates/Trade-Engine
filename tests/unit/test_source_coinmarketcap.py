@@ -10,7 +10,7 @@ from trade_engine.services.data.types import (
     AssetType,
     Quote
 )
-from trade_engine.services.data.source_coinmarketcap import CoinMarketCapSource
+from trade_engine.adapters.data_sources.coinmarketcap import CoinMarketCapSource
 
 
 class TestCoinMarketCapInit:

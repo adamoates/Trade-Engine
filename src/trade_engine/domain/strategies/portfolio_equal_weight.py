@@ -8,7 +8,7 @@ Simple but effective baseline strategy.
 from typing import List, Dict
 from loguru import logger
 
-from trade_engine.services.strategies.types import (
+from trade_engine.domain.strategies.types import (
     PortfolioConstructionModel,
     Insight,
     TargetPortfolio,

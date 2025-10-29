@@ -37,14 +37,44 @@ Medium-frequency cryptocurrency trading system using Level 2 order book imbalanc
 
 ## Project Structure
 
+The system follows **Clean Architecture** with three distinct layers:
+
+### Three-Layer Architecture
+
+**Layer 1: Domain (Business Logic)** - Pure Python
+- `src/trade_engine/domain/strategies/` - Trading strategies (12 strategies)
+- `src/trade_engine/domain/risk/` - Risk management logic
+
+**Layer 2: Services (Orchestration)** - Application services
+- `src/trade_engine/services/trading/` - Live trading engine
+- `src/trade_engine/services/backtest/` - Backtesting engine
+- `src/trade_engine/services/data/` - Data aggregation
+
+**Layer 3: Adapters (Infrastructure)** - External integrations
+- `src/trade_engine/adapters/brokers/` - 4 broker implementations
+- `src/trade_engine/adapters/data_sources/` - 5 data providers
+- `src/trade_engine/adapters/feeds/` - L2 order book feed
+
+### Directory Overview
+
 ```
-MFT/
-├── scripts/           # Phase 0 data collection scripts
+trade-engine/
+├── src/trade_engine/  # Main codebase (Clean Architecture)
+│   ├── adapters/     # Brokers, data sources, feeds
+│   ├── domain/       # Business logic (strategies, risk)
+│   ├── services/     # Trading engine, backtesting
+│   └── core/         # Configuration, types, constants
+├── tests/            # Test suite (465 tests, 100% passing)
+│   ├── unit/        # Unit tests
+│   └── integration/ # Integration tests
+├── data/             # Market data (CSVs, L2 snapshots, gitignored)
+├── logs/             # Runtime logs (gitignored)
+├── scripts/          # Development & deployment scripts
 ├── docs/             # Comprehensive documentation
-│   └── guides/       # Setup and workflow guides
-├── CLAUDE.md         # AI assistant context
+│   └── guides/      # Setup and workflow guides
+├── CLAUDE.md         # Project instructions for Claude Code
 ├── ROADMAP.md        # 7-phase development plan
-└── requirements.txt  # Phase 0 minimal dependencies
+└── pytest.ini        # Test configuration
 ```
 
 ## Quick Start
@@ -117,6 +147,37 @@ See [docs/guides/project-setup-checklist.md](docs/guides/project-setup-checklist
 - Check [docs/guides/](docs/guides/) for detailed guides
 - See test report: [docs/TEST_REPORT_2025-10-23.md](docs/TEST_REPORT_2025-10-23.md)
 - Review risk management: Tests verify daily loss limits, position sizing, kill switches
+
+## Viewing Results (Live Monitoring)
+
+### 📊 Logs are Your Primary Interface
+
+The bot writes **structured JSON logs** to view all trading activity:
+
+```bash
+# View live results (tail logs in real-time)
+tail -f logs/audit_$(date +%Y-%m-%d).jsonl | jq '.'
+
+# Filter specific events
+tail -f logs/audit_$(date +%Y-%m-%d).jsonl | jq 'select(.event == "signal_generated")'
+tail -f logs/audit_$(date +%Y-%m-%d).jsonl | jq 'select(.event == "order_placed")'
+tail -f logs/audit_$(date +%Y-%m-%d).jsonl | jq 'select(.event == "risk_block")'
+```
+
+**What's Logged:**
+- 📊 Bar events (received, skipped, warnings)
+- 🎯 Signal events (generated, risk blocks)
+- 📤 Order events (placed, executed, errors)
+- ⚠️ Strategy & broker errors
+- 🔴 Lifecycle events (shutdown, emergency stop)
+
+**Log Format:** JSON lines in `logs/audit_YYYY-MM-DD.jsonl` (daily rotation)
+
+**Future Monitoring:**
+- Phase 3: API endpoints to query results
+- Phase 4: React dashboard with live charts
+
+See [CLAUDE.md § Monitoring & Logging](#) for complete log analysis commands.
 
 ## Documentation
 

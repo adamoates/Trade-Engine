@@ -19,7 +19,7 @@ from trade_engine.core.constants import (
     BINANCE_DEFAULT_RECV_WINDOW_MS,
     BINANCE_REQUEST_TIMEOUT_SECONDS
 )
-from trade_engine.core.engine.types import Broker, Position
+from trade_engine.core.types import Broker, Position
 
 
 class BinanceError(Exception):

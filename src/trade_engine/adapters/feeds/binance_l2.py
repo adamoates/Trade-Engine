@@ -22,7 +22,7 @@ from sortedcontainers import SortedDict
 import websockets
 from loguru import logger
 
-from trade_engine.core.engine.types import DataFeed, Bar
+from trade_engine.core.types import DataFeed, Bar
 
 
 class BinanceL2Error(Exception):

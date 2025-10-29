@@ -7,7 +7,7 @@ Ensures no single position exceeds a maximum percentage of the portfolio.
 from typing import Dict
 from loguru import logger
 
-from trade_engine.services.strategies.types import (
+from trade_engine.domain.strategies.types import (
     RiskManagementModel,
     TargetPortfolio
 )
