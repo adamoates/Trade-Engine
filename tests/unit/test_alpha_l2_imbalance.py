@@ -355,6 +355,87 @@ class TestL2ImbalanceStrategy:
         signals = strategy.on_bar(bar)
         assert len(signals) == 0
 
+    def test_no_signal_when_order_book_stale(self):
+        """Test no signal generated when order book is stale (staleness check)."""
+        # Create order book with bullish imbalance
+        snapshot = {
+            "lastUpdateId": 101,
+            "bids": [["50000.0", "3.0"]],  # Strong bid
+            "asks": [["50001.0", "1.0"]]
+        }
+        self.order_book.apply_snapshot(snapshot)
+
+        # Manually set last_update_time to >1 second ago (stale)
+        self.order_book.last_update_time = time.time() - 2.0
+
+        bar = Bar(
+            timestamp=int(time.time() * 1000),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("0")
+        )
+
+        # Despite bullish imbalance, should NOT generate signal (stale data)
+        signals = self.strategy.on_bar(bar)
+        assert len(signals) == 0
+
+    def test_signal_generated_when_order_book_fresh(self):
+        """Test signal is generated when order book is fresh (not stale)."""
+        # Create order book with bullish imbalance
+        snapshot = {
+            "lastUpdateId": 101,
+            "bids": [["50000.0", "3.0"]],
+            "asks": [["50001.0", "1.0"]]
+        }
+        self.order_book.apply_snapshot(snapshot)  # Updates last_update_time to now
+
+        bar = Bar(
+            timestamp=int(time.time() * 1000),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("0")
+        )
+
+        # With fresh data, should generate signal
+        signals = self.strategy.on_bar(bar)
+        assert len(signals) == 1
+        assert signals[0].side == "buy"
+
+    def test_no_exit_signal_when_order_book_stale(self):
+        """Test exit signal logic when order book becomes stale while in position."""
+        # Enter long position
+        self.strategy._enter_position("long", Decimal("50000"))
+        assert self.strategy.in_position is True
+
+        # Create bearish imbalance (should trigger exit normally)
+        snapshot = {
+            "lastUpdateId": 102,
+            "bids": [["50000.0", "0.5"]],
+            "asks": [["50001.0", "2.0"]]
+        }
+        self.order_book.apply_snapshot(snapshot)
+
+        # Make order book stale
+        self.order_book.last_update_time = time.time() - 2.0
+
+        bar = Bar(
+            timestamp=int(time.time() * 1000),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("0")
+        )
+
+        # With stale data, should NOT generate exit signal
+        signals = self.strategy.on_bar(bar)
+        assert len(signals) == 0
+        assert self.strategy.in_position is True  # Still in position
+
     def test_spread_filter(self):
         """Test wide spread prevents signal generation."""
         # Create order book with wide spread
@@ -611,3 +692,176 @@ class TestL2ImbalanceStrategySpotOnly:
         assert len(signals) == 1
         assert signals[0].side == "close"
         assert "imbalance_reversal" in signals[0].reason
+
+
+class TestL2ImbalanceStrategyKillSwitch:
+    """Test L2ImbalanceStrategy with kill switch / emergency stop scenarios."""
+
+    def setup_method(self):
+        """Setup test fixtures for kill switch tests."""
+        self.symbol = "BTCUSDT"
+        self.order_book = OrderBook(self.symbol)
+
+        # Initialize with snapshot
+        snapshot = {
+            "lastUpdateId": 100,
+            "bids": [["50000.0", "1.0"]],
+            "asks": [["50001.0", "1.0"]]
+        }
+        self.order_book.apply_snapshot(snapshot)
+
+        self.strategy = L2ImbalanceStrategy(
+            symbol=self.symbol,
+            order_book=self.order_book
+        )
+
+    def test_reset_clears_position_on_kill_switch(self):
+        """Test that reset() can be used to clear positions on kill switch."""
+        # Enter long position
+        self.strategy._enter_position("long", Decimal("50000"))
+        assert self.strategy.in_position is True
+        assert self.strategy.position_side == "long"
+        assert self.strategy.entry_price == Decimal("50000")
+
+        # Simulate kill switch: reset() clears all state
+        self.strategy.reset()
+
+        # Verify all position state is cleared
+        assert self.strategy.in_position is False
+        assert self.strategy.position_side is None
+        assert self.strategy.entry_price is None
+        assert self.strategy.entry_time is None
+        assert self.strategy.signal_count == 0
+        assert self.strategy.last_signal_time == 0.0
+
+    def test_can_generate_signals_immediately_after_reset(self):
+        """Test that strategy can generate signals immediately after reset (kill switch recovery)."""
+        # Create bullish order book
+        snapshot = {
+            "lastUpdateId": 101,
+            "bids": [["50000.0", "3.0"]],
+            "asks": [["50001.0", "1.0"]]
+        }
+        self.order_book.apply_snapshot(snapshot)
+
+        bar = Bar(
+            timestamp=int(time.time() * 1000),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("0")
+        )
+
+        # Generate initial signal
+        signals1 = self.strategy.on_bar(bar)
+        assert len(signals1) == 1
+        assert self.strategy.in_position is True
+
+        # Simulate kill switch: reset position
+        self.strategy.reset()
+        assert self.strategy.in_position is False
+        assert self.strategy.last_signal_time == 0.0  # Reset clears cooldown
+
+        # After reset, strategy can immediately generate new signals
+        # (This is intended behavior - reset clears cooldown)
+        self.order_book.apply_snapshot(snapshot)
+        signals2 = self.strategy.on_bar(bar)
+        assert len(signals2) == 1  # Can trade immediately after reset
+        assert self.strategy.in_position is True
+
+    def test_exit_position_before_kill_switch(self):
+        """Test that strategy can generate exit signal to close position before kill switch."""
+        # Enter long position
+        self.strategy._enter_position("long", Decimal("50000"))
+        assert self.strategy.in_position is True
+
+        # Price moves to stop loss
+        loss_price = Decimal("50000") * Decimal("0.9985")  # -0.15% (SL)
+
+        # Create order book for exit condition
+        snapshot = {
+            "lastUpdateId": 102,
+            "bids": [["49925.0", "1.0"]],
+            "asks": [["49926.0", "1.0"]]
+        }
+        self.order_book.apply_snapshot(snapshot)
+
+        bar = Bar(
+            timestamp=int(time.time() * 1000),
+            open=loss_price,
+            high=loss_price,
+            low=loss_price,
+            close=loss_price,
+            volume=Decimal("0")
+        )
+
+        # Should generate exit signal (before kill switch is needed)
+        signals = self.strategy.on_bar(bar)
+        assert len(signals) == 1
+        assert signals[0].side == "close"
+        assert "stop_loss" in signals[0].reason
+        assert self.strategy.in_position is False
+
+    def test_strategy_state_after_emergency_stop(self):
+        """Test that strategy state is valid after emergency stop (kill switch)."""
+        # Enter position and generate some activity
+        self.strategy._enter_position("long", Decimal("50000"))
+        self.strategy.signal_count = 10
+        self.strategy.last_signal_time = time.time()
+
+        # Simulate emergency stop / kill switch
+        self.strategy.reset()
+
+        # Get state - should be valid with no position
+        state = self.strategy.get_state()
+        assert state["in_position"] is False
+        assert state["position_side"] is None
+        assert state["entry_price"] is None
+        assert state["signal_count"] == 0
+        assert "current_imbalance" in state
+        assert "mid_price" in state
+
+    def test_multiple_kill_switch_activations(self):
+        """Test strategy handles multiple kill switch activations correctly."""
+        # Create bullish order book
+        snapshot = {
+            "lastUpdateId": 101,
+            "bids": [["50000.0", "3.0"]],
+            "asks": [["50001.0", "1.0"]]
+        }
+
+        bar = Bar(
+            timestamp=int(time.time() * 1000),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("0")
+        )
+
+        # Cycle 1: Enter position -> kill switch -> reset
+        self.order_book.apply_snapshot(snapshot)
+        signals = self.strategy.on_bar(bar)
+        assert len(signals) == 1
+        assert self.strategy.in_position is True
+
+        self.strategy.reset()
+        assert self.strategy.in_position is False
+
+        # Cycle 2: Wait for cooldown, enter again -> kill switch -> reset
+        time.sleep(self.strategy.config.cooldown_seconds + 0.1)
+        self.order_book.apply_snapshot(snapshot)
+        signals = self.strategy.on_bar(bar)
+        assert len(signals) == 1
+        assert self.strategy.in_position is True
+
+        self.strategy.reset()
+        assert self.strategy.in_position is False
+
+        # Cycle 3: Verify strategy still works after multiple resets
+        time.sleep(self.strategy.config.cooldown_seconds + 0.1)
+        self.order_book.apply_snapshot(snapshot)
+        signals = self.strategy.on_bar(bar)
+        assert len(signals) == 1
+        assert self.strategy.in_position is True
