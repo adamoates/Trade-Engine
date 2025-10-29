@@ -9,6 +9,7 @@ import os
 import time
 import hmac
 import hashlib
+from decimal import Decimal
 from typing import Dict
 import requests
 from loguru import logger
@@ -226,18 +227,18 @@ class BinanceFuturesBroker(Broker):
         positions = {}
         for pos_data in result:
             symbol = pos_data["symbol"]
-            qty = abs(float(pos_data["positionAmt"]))
+            qty = abs(Decimal(pos_data["positionAmt"]))
 
             # Skip if no position
             if qty == 0:
                 continue
 
-            entry_price = float(pos_data["entryPrice"])
-            mark_price = float(pos_data["markPrice"])
-            unrealized_pnl = float(pos_data["unRealizedProfit"])
+            entry_price = Decimal(pos_data["entryPrice"])
+            mark_price = Decimal(pos_data["markPrice"])
+            unrealized_pnl = Decimal(pos_data["unRealizedProfit"])
 
             # Determine side
-            side = "long" if float(pos_data["positionAmt"]) > 0 else "short"
+            side = "long" if Decimal(pos_data["positionAmt"]) > 0 else "short"
 
             # Calculate PnL %
             if entry_price > 0:
@@ -246,16 +247,17 @@ class BinanceFuturesBroker(Broker):
                 else:
                     pnl_pct = ((entry_price - mark_price) / entry_price) * 100
             else:
-                pnl_pct = 0.0
+                pnl_pct = Decimal("0.0")
 
+            # Convert to float for Position (core types will be migrated to Decimal in future PR)
             positions[symbol] = Position(
                 symbol=symbol,
                 side=side,
-                qty=qty,
-                entry_price=entry_price,
-                current_price=mark_price,
-                pnl=unrealized_pnl,
-                pnl_pct=pnl_pct
+                qty=float(qty),
+                entry_price=float(entry_price),
+                current_price=float(mark_price),
+                pnl=float(unrealized_pnl),
+                pnl_pct=float(pnl_pct)
             )
 
         return positions

@@ -242,18 +242,19 @@ class MetricsCalculator:
             return 0.0
 
         # Calculate returns for each trade (as percentage)
-        returns = [float(t.pnl_pct) for t in self.trades]
+        # Keep as Decimal for precision in statistical calculations
+        returns = [t.pnl_pct for t in self.trades]
 
         mean_return = sum(returns) / len(returns)
 
-        # Standard deviation
+        # Standard deviation (convert to float only for math.sqrt)
         variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
-        std_dev = math.sqrt(variance)
+        std_dev = float(variance) ** 0.5  # Use ** 0.5 instead of math.sqrt for Decimal
 
         if std_dev == 0:
             return 0.0
 
-        sharpe = mean_return / std_dev
+        sharpe = float(mean_return) / std_dev
 
         # Annualize (assuming ~252 trading days per year, ~60 trades per day for MFT)
         # For L2 scalping with 5-60 second holds, could have ~100+ trades per day
@@ -275,7 +276,8 @@ class MetricsCalculator:
         if len(self.trades) < 2:
             return 0.0
 
-        returns = [float(t.pnl_pct) for t in self.trades]
+        # Keep as Decimal for precision
+        returns = [t.pnl_pct for t in self.trades]
         mean_return = sum(returns) / len(returns)
 
         # Downside deviation (only negative returns)
@@ -285,12 +287,12 @@ class MetricsCalculator:
             return float('inf')  # No downside volatility
 
         downside_variance = sum(r ** 2 for r in negative_returns) / len(returns)
-        downside_dev = math.sqrt(downside_variance)
+        downside_dev = float(downside_variance) ** 0.5  # Use ** 0.5 for Decimal compatibility
 
         if downside_dev == 0:
             return 0.0
 
-        sortino = mean_return / downside_dev
+        sortino = float(mean_return) / downside_dev
 
         # Annualize
         trades_per_year = 252 * 50
