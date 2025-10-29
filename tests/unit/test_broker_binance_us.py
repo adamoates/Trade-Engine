@@ -18,20 +18,20 @@ class TestBinanceUSBrokerInit:
     """Test broker initialization."""
 
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_init_with_credentials(self):
         """Test initialization with valid credentials."""
         broker = BinanceUSSpotBroker()
 
-        assert broker.api_key == "test_key"
-        assert broker.api_secret == "test_secret"
+        assert broker.api_key == "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+        assert broker.api_secret == "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
         assert broker.recv_window == 5000
 
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_init_with_custom_recv_window(self):
         """Test initialization with custom recv_window."""
@@ -42,22 +42,67 @@ class TestBinanceUSBrokerInit:
     @patch.dict("os.environ", {}, clear=True)
     def test_init_without_api_key(self):
         """Test initialization fails without API key."""
-        with pytest.raises(BinanceUSError, match="Missing API credentials"):
+        with pytest.raises(BinanceUSError, match="Missing BINANCE_US_API_KEY"):
             BinanceUSSpotBroker()
 
-    @patch.dict("os.environ", {"BINANCE_US_API_KEY": "test_key"}, clear=True)
+    @patch.dict("os.environ", {"BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"}, clear=True)
     def test_init_without_api_secret(self):
         """Test initialization fails without API secret."""
-        with pytest.raises(BinanceUSError, match="Missing API credentials"):
+        with pytest.raises(BinanceUSError, match="Missing BINANCE_US_API_SECRET"):
             BinanceUSSpotBroker()
+
+    @patch.dict("os.environ", {
+        "BINANCE_US_API_KEY": "short",  # Too short
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
+    })
+    def test_init_with_short_api_key(self):
+        """Test initialization fails with API key that's too short."""
+        with pytest.raises(BinanceUSError, match="Invalid API key format: too short"):
+            BinanceUSSpotBroker()
+
+    @patch.dict("os.environ", {
+        "BINANCE_US_API_KEY": "invalid_characters_here_1234567890abcdef1234567890abcdef",  # Non-hex
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
+    })
+    def test_init_with_invalid_api_key_chars(self):
+        """Test initialization fails with API key containing non-hex characters."""
+        with pytest.raises(BinanceUSError, match="Invalid API key format: must be hexadecimal"):
+            BinanceUSSpotBroker()
+
+    @patch.dict("os.environ", {
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "short"  # Too short
+    })
+    def test_init_with_short_api_secret(self):
+        """Test initialization fails with API secret that's too short."""
+        with pytest.raises(BinanceUSError, match="Invalid API secret format: too short"):
+            BinanceUSSpotBroker()
+
+    @patch.dict("os.environ", {
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "invalid_characters_here_1234567890abcdef1234567890abcdef"  # Non-hex
+    })
+    def test_init_with_invalid_api_secret_chars(self):
+        """Test initialization fails with API secret containing non-hex characters."""
+        with pytest.raises(BinanceUSError, match="Invalid API secret format: must be hexadecimal"):
+            BinanceUSSpotBroker()
+
+    @patch.dict("os.environ", {
+        "BINANCE_US_API_KEY": "ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890",  # Uppercase hex (valid)
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
+    })
+    def test_init_with_uppercase_hex_key(self):
+        """Test initialization succeeds with uppercase hex API key."""
+        broker = BinanceUSSpotBroker()
+        assert broker.api_key == "ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890"
 
 
 class TestSignature:
     """Test HMAC-SHA256 signature generation."""
 
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_sign(self):
         """Test signature generation."""
@@ -77,8 +122,8 @@ class TestSignature:
         assert all(c in "0123456789abcdef" for c in signature)
 
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_sign_deterministic(self):
         """Test signature is deterministic (same input = same output)."""
@@ -97,8 +142,8 @@ class TestBuyOrder:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_buy_success(self, mock_post):
         """Test successful BUY order."""
@@ -124,8 +169,8 @@ class TestBuyOrder:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_buy_with_decimal_qty(self, mock_post):
         """Test BUY order with Decimal quantity (NOT float)."""
@@ -148,8 +193,8 @@ class TestBuyOrder:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_buy_api_error(self, mock_post):
         """Test BUY order with API error."""
@@ -168,8 +213,8 @@ class TestBuyOrder:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_buy_no_order_id(self, mock_post):
         """Test BUY order fails if no orderId returned."""
@@ -189,8 +234,8 @@ class TestSellOrder:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_sell_success(self, mock_post):
         """Test successful SELL order (closes long position)."""
@@ -220,8 +265,8 @@ class TestSellOrder:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_sell_with_decimal_qty(self, mock_post):
         """Test SELL order with Decimal quantity (NOT float)."""
@@ -249,8 +294,8 @@ class TestCloseAll:
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_close_all_with_position(self, mock_get, mock_post):
         """Test close_all sells existing holdings."""
@@ -290,8 +335,8 @@ class TestCloseAll:
     @patch("trade_engine.adapters.brokers.binance_us.requests.post")
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_close_all_no_position(self, mock_get, mock_post):
         """Test close_all does nothing if no holdings."""
@@ -317,8 +362,8 @@ class TestPositions:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_positions_with_holdings(self, mock_get):
         """Test positions() returns holdings."""
@@ -371,8 +416,8 @@ class TestPositions:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_positions_empty(self, mock_get):
         """Test positions() with no holdings."""
@@ -394,8 +439,8 @@ class TestPositions:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_positions_skips_quote_currency(self, mock_get):
         """Test positions() skips USDT/USD (quote currencies)."""
@@ -421,8 +466,8 @@ class TestBalance:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_balance_success(self, mock_get):
         """Test successful balance query."""
@@ -446,8 +491,8 @@ class TestBalance:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_balance_no_usdt(self, mock_get):
         """Test balance query with no USDT."""
@@ -469,8 +514,8 @@ class TestBalance:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_balance_api_error(self, mock_get):
         """Test balance query with API error."""
@@ -493,8 +538,8 @@ class TestRequestMethod:
 
     @patch("trade_engine.adapters.brokers.binance_us.requests.get")
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_request_timeout(self, mock_get):
         """Test request with timeout."""
@@ -508,8 +553,8 @@ class TestRequestMethod:
             broker._request("GET", "/api/v3/account", signed=True)
 
     @patch.dict("os.environ", {
-        "BINANCE_US_API_KEY": "test_key",
-        "BINANCE_US_API_SECRET": "test_secret"
+        "BINANCE_US_API_KEY": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "BINANCE_US_API_SECRET": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
     })
     def test_request_unsupported_method(self):
         """Test request with unsupported HTTP method."""

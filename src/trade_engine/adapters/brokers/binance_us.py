@@ -66,10 +66,8 @@ class BinanceUSSpotBroker(Broker):
         self.api_key = os.getenv("BINANCE_US_API_KEY")
         self.api_secret = os.getenv("BINANCE_US_API_SECRET")
 
-        if not self.api_key or not self.api_secret:
-            raise BinanceUSError(
-                "Missing API credentials. Set BINANCE_US_API_KEY and BINANCE_US_API_SECRET"
-            )
+        # Validate credentials
+        self._validate_credentials()
 
         # Position database for entry price tracking
         self.position_db = PositionDatabase(db_path=db_path)
@@ -77,6 +75,59 @@ class BinanceUSSpotBroker(Broker):
         logger.info(
             "BinanceUSSpotBroker initialized (SPOT ONLY - LONG ONLY) | "
             f"Entry price tracking: {db_path}"
+        )
+
+    def _validate_credentials(self) -> None:
+        """
+        Validate API credentials format and presence.
+
+        Raises:
+            BinanceUSError: If credentials are missing or invalid
+
+        Security notes:
+            - Never logs actual credential values
+            - Only validates format, not authenticity (API will reject invalid creds)
+        """
+        # Check for missing credentials
+        if not self.api_key:
+            raise BinanceUSError(
+                "Missing BINANCE_US_API_KEY environment variable. "
+                "Set it before initializing the broker."
+            )
+
+        if not self.api_secret:
+            raise BinanceUSError(
+                "Missing BINANCE_US_API_SECRET environment variable. "
+                "Set it before initializing the broker."
+            )
+
+        # Validate API key format (Binance keys are 64-character hex strings)
+        if len(self.api_key) < 32:
+            raise BinanceUSError(
+                f"Invalid API key format: too short ({len(self.api_key)} chars, expected 64+). "
+                f"Key prefix: {self.api_key[:8]}..."
+            )
+
+        if not all(c in "0123456789ABCDEFabcdef" for c in self.api_key):
+            raise BinanceUSError(
+                "Invalid API key format: must be hexadecimal. "
+                f"Key prefix: {self.api_key[:8]}..."
+            )
+
+        # Validate API secret format
+        if len(self.api_secret) < 32:
+            raise BinanceUSError(
+                f"Invalid API secret format: too short ({len(self.api_secret)} chars, expected 64+)"
+            )
+
+        if not all(c in "0123456789ABCDEFabcdef" for c in self.api_secret):
+            raise BinanceUSError(
+                "Invalid API secret format: must be hexadecimal"
+            )
+
+        logger.info(
+            f"API credentials validated | Key: {self.api_key[:8]}...{self.api_key[-4:]} "
+            f"(length: {len(self.api_key)})"
         )
 
     def _sign(self, params: dict) -> str:
