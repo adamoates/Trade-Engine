@@ -195,6 +195,81 @@ class BinanceUSSpotBroker(Broker):
             else:
                 raise BinanceUSError(f"Request failed: {e}")
 
+    def _wait_for_fill(
+        self,
+        symbol: str,
+        order_id: str,
+        timeout_seconds: float = 10.0,
+        poll_interval: float = 0.5
+    ) -> dict:
+        """
+        Wait for order to fill with configurable timeout.
+
+        Polls order status until FILLED or PARTIALLY_FILLED, or timeout is reached.
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+            order_id: Order ID to check
+            timeout_seconds: Max time to wait for fill (default 10s)
+            poll_interval: Time between status checks (default 0.5s)
+
+        Returns:
+            Order details dict from API
+
+        Raises:
+            BinanceUSError: If timeout reached or order rejected
+
+        Notes:
+            - Accepts FILLED and PARTIALLY_FILLED status
+            - Market orders typically fill within 100-500ms
+            - 10s timeout allows for volatile market conditions
+        """
+        import time
+        start_time = time.time()
+        attempts = 0
+
+        while time.time() - start_time < timeout_seconds:
+            attempts += 1
+
+            # Query order status
+            order_details = self._request(
+                "GET",
+                "/api/v3/order",
+                params={"symbol": symbol, "orderId": order_id},
+                signed=True
+            )
+
+            status = order_details.get("status")
+            executed_qty = Decimal(str(order_details.get("executedQty", 0)))
+
+            # Accept FILLED or PARTIALLY_FILLED
+            if status in ["FILLED", "PARTIALLY_FILLED"]:
+                elapsed = (time.time() - start_time) * 1000  # ms
+                logger.debug(
+                    f"Order filled: {symbol} | "
+                    f"Status: {status} | "
+                    f"Qty: {executed_qty} | "
+                    f"Latency: {elapsed:.1f}ms | "
+                    f"Attempts: {attempts}"
+                )
+                return order_details
+
+            # Reject orders that failed
+            if status in ["CANCELED", "REJECTED", "EXPIRED"]:
+                raise BinanceUSError(
+                    f"Order {order_id} failed with status: {status}"
+                )
+
+            # Wait before next poll
+            time.sleep(poll_interval)
+
+        # Timeout reached
+        raise BinanceUSError(
+            f"Order {order_id} did not fill within {timeout_seconds}s. "
+            f"Final status: {order_details.get('status')}, "
+            f"Executed qty: {executed_qty}"
+        )
+
     def buy(
         self,
         symbol: str,
@@ -240,36 +315,28 @@ class BinanceUSSpotBroker(Broker):
 
         # Get actual fill price for entry price tracking
         try:
-            # Query order details to get fill price
-            order_details = self._request(
-                "GET",
-                "/api/v3/order",
-                params={"symbol": symbol, "orderId": order_id},
-                signed=True
-            )
+            # Wait for order to fill (with timeout)
+            order_details = self._wait_for_fill(symbol, order_id, timeout_seconds=10.0)
 
-            # 🔑 FIX Issue #3: Validate order was fully filled
+            # Get executed quantity and status
             order_status = order_details.get("status")
             executed_qty = Decimal(str(order_details.get("executedQty", 0)))
 
-            if order_status != "FILLED":
-                logger.error(
-                    f"Order not fully filled: {symbol} | "
-                    f"Status: {order_status} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
-                )
-                raise BinanceUSError(
-                    f"Order {order_id} not fully filled. "
-                    f"Status: {order_status}, Executed: {executed_qty}/{qty}"
-                )
-
+            # Handle partial fills
             if executed_qty != qty:
                 logger.warning(
-                    f"Partial fill detected: {symbol} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
+                    f"Partial fill: {symbol} | "
+                    f"Requested: {qty} | Executed: {executed_qty} | "
+                    f"Status: {order_status}"
                 )
-                # Update qty to actual executed amount
+                # Accept partial fill and update qty to actual executed amount
                 qty = executed_qty
+
+            # Reject orders with zero execution
+            if executed_qty == 0:
+                raise BinanceUSError(
+                    f"Order {order_id} executed with zero quantity. Status: {order_status}"
+                )
 
             # Calculate average fill price from fills
             fills = order_details.get("fills", [])
@@ -377,36 +444,28 @@ class BinanceUSSpotBroker(Broker):
 
         # Get actual fill price for P&L calculation
         try:
-            # Query order details to get fill price
-            order_details = self._request(
-                "GET",
-                "/api/v3/order",
-                params={"symbol": symbol, "orderId": order_id},
-                signed=True
-            )
+            # Wait for order to fill (with timeout)
+            order_details = self._wait_for_fill(symbol, order_id, timeout_seconds=10.0)
 
-            # 🔑 FIX Issue #3: Validate order was fully filled
+            # Get executed quantity and status
             order_status = order_details.get("status")
             executed_qty = Decimal(str(order_details.get("executedQty", 0)))
 
-            if order_status != "FILLED":
-                logger.error(
-                    f"Order not fully filled: {symbol} | "
-                    f"Status: {order_status} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
-                )
-                raise BinanceUSError(
-                    f"Order {order_id} not fully filled. "
-                    f"Status: {order_status}, Executed: {executed_qty}/{qty}"
-                )
-
+            # Handle partial fills
             if executed_qty != qty:
                 logger.warning(
-                    f"Partial fill detected: {symbol} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
+                    f"Partial fill: {symbol} | "
+                    f"Requested: {qty} | Executed: {executed_qty} | "
+                    f"Status: {order_status}"
                 )
-                # Update qty to actual executed amount for P&L calculation
+                # Accept partial fill and update qty for P&L calculation
                 qty = executed_qty
+
+            # Reject orders with zero execution
+            if executed_qty == 0:
+                raise BinanceUSError(
+                    f"Order {order_id} executed with zero quantity. Status: {order_status}"
+                )
 
             # Calculate average fill price from fills
             fills = order_details.get("fills", [])
