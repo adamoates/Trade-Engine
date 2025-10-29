@@ -65,10 +65,11 @@ class TestOpenPosition:
 
             # Verify position was stored
             positions = db.get_open_positions()
-            assert "BTCUSDT" in positions
-            assert positions["BTCUSDT"]["entry_price"] == Decimal("50000.00")
-            assert positions["BTCUSDT"]["qty"] == Decimal("0.1")
-            assert positions["BTCUSDT"]["side"] == "long"
+            # When not filtering by broker, key is "symbol_broker"
+            assert "BTCUSDT_test_broker" in positions
+            assert positions["BTCUSDT_test_broker"]["entry_price"] == Decimal("50000.00")
+            assert positions["BTCUSDT_test_broker"]["qty"] == Decimal("0.1")
+            assert positions["BTCUSDT_test_broker"]["side"] == "long"
 
     def test_open_position_rejects_float(self):
         """Test that float values are rejected (must use Decimal)."""
@@ -470,7 +471,9 @@ class TestStatistics:
             assert stats["losing_trades"] == 1
             assert stats["win_rate"] == 66.67  # 2/3 * 100
             assert stats["total_pnl"] == Decimal("250.0")  # $100 - $50 + $200
-            assert stats["avg_pnl"] == Decimal("83.33333333333333333333333333")  # $250 / 3
+            # SQLite REAL has ~15 digits precision, check within tolerance
+            expected_avg = Decimal("250") / Decimal("3")
+            assert abs(stats["avg_pnl"] - expected_avg) < Decimal("0.01")  # Within 1 cent
             assert stats["profit_factor"] == 6.0  # $300 wins / $50 losses
 
 

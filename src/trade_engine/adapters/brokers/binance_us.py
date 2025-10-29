@@ -197,6 +197,29 @@ class BinanceUSSpotBroker(Broker):
                 signed=True
             )
 
+            # 🔑 FIX Issue #3: Validate order was fully filled
+            order_status = order_details.get("status")
+            executed_qty = Decimal(str(order_details.get("executedQty", 0)))
+
+            if order_status != "FILLED":
+                logger.error(
+                    f"Order not fully filled: {symbol} | "
+                    f"Status: {order_status} | "
+                    f"Requested: {qty} | Executed: {executed_qty}"
+                )
+                raise BinanceUSError(
+                    f"Order {order_id} not fully filled. "
+                    f"Status: {order_status}, Executed: {executed_qty}/{qty}"
+                )
+
+            if executed_qty != qty:
+                logger.warning(
+                    f"Partial fill detected: {symbol} | "
+                    f"Requested: {qty} | Executed: {executed_qty}"
+                )
+                # Update qty to actual executed amount
+                qty = executed_qty
+
             # Calculate average fill price from fills
             fills = order_details.get("fills", [])
             if fills:
@@ -234,10 +257,25 @@ class BinanceUSSpotBroker(Broker):
             )
 
         except PositionDatabaseError as e:
-            logger.warning(
-                f"Position already tracked for {symbol}: {e} | "
-                "P&L may be inaccurate if adding to position"
-            )
+            # 🔑 FIX Issue #2: Position already exists - use weighted average entry price
+            logger.info(f"Adding to existing position: {symbol}")
+            try:
+                updated_position = self.position_db.add_to_position(
+                    symbol=symbol,
+                    additional_qty=qty,
+                    additional_price=avg_fill_price,
+                    broker="binance_us"
+                )
+                logger.info(
+                    f"Position averaged: {symbol} | "
+                    f"New entry: {updated_position['entry_price']} | "
+                    f"New qty: {updated_position['qty']}"
+                )
+            except Exception as add_error:
+                logger.error(f"Failed to average position {symbol}: {add_error}")
+                raise BinanceUSError(
+                    f"Position tracking failed for {symbol}: {add_error}"
+                ) from add_error
         except Exception as e:
             logger.error(f"Failed to track entry price for {symbol}: {e}")
 
@@ -295,6 +333,29 @@ class BinanceUSSpotBroker(Broker):
                 params={"symbol": symbol, "orderId": order_id},
                 signed=True
             )
+
+            # 🔑 FIX Issue #3: Validate order was fully filled
+            order_status = order_details.get("status")
+            executed_qty = Decimal(str(order_details.get("executedQty", 0)))
+
+            if order_status != "FILLED":
+                logger.error(
+                    f"Order not fully filled: {symbol} | "
+                    f"Status: {order_status} | "
+                    f"Requested: {qty} | Executed: {executed_qty}"
+                )
+                raise BinanceUSError(
+                    f"Order {order_id} not fully filled. "
+                    f"Status: {order_status}, Executed: {executed_qty}/{qty}"
+                )
+
+            if executed_qty != qty:
+                logger.warning(
+                    f"Partial fill detected: {symbol} | "
+                    f"Requested: {qty} | Executed: {executed_qty}"
+                )
+                # Update qty to actual executed amount for P&L calculation
+                qty = executed_qty
 
             # Calculate average fill price from fills
             fills = order_details.get("fills", [])
