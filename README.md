@@ -181,10 +181,20 @@ See [CLAUDE.md § Monitoring & Logging](#) for complete log analysis commands.
 
 ## Documentation
 
-- **CLAUDE.md** - Project overview, code standards, critical rules
-- **ROADMAP.md** - 7-phase development plan with gates
-- **docs/** - Complete documentation index
-- **docs/guides/** - Comprehensive setup and workflow guides
+### 📚 Core Documentation (Single Source of Truth)
+
+- **[README.md](README.md)** - Project overview and quick start (you are here)
+- **[ROADMAP.md](ROADMAP.md)** - 7-phase development plan with milestones and gates
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
+- **[.claude/CLAUDE.md](.claude/CLAUDE.md)** - AI assistant instructions: coding standards, critical rules, architecture
+
+### 📖 Guides & References
+
+- **[Documentation Guide](docs/reference/documentation-guide.md)** - Where to find and update documentation
+- **[Git Workflow](docs/guides/git-workflow.md)** - Branch strategy, commit conventions, PR process
+- **[Development Workflow](docs/guides/development-workflow.md)** - Local setup and development
+- **[CI/CD Setup](docs/guides/ci-cd-setup.md)** - GitHub Actions and quality gates
+- **[All Guides](docs/guides/)** - Complete list of how-to guides
 
 ## Development Principles
 

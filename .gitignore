@@ -77,3 +77,14 @@ docker-compose.override.yml
 # Data directories
 data/
 !data/.gitkeep
+data_audit/
+benchmark_results/
+
+# Generated documentation
+htmlcov/
+coverage.xml
+
+# Temporary files
+*.tmp
+*.bak
+.~*
