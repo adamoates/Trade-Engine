@@ -4,8 +4,14 @@ Binance.us Spot L2 Order Book Imbalance Strategy - Integration Demo
 
 Tests the complete system with Binance.us Spot (US-only, long-only):
 - Binance.us Spot API (NO TESTNET - USES REAL MONEY!)
+- Binance.us REST L2 feed (actual Binance.US order book data)
 - L2ImbalanceStrategy (spot-only mode, long positions only)
 - RiskManager (risk controls)
+
+⚠️  DATA SOURCE: Uses actual Binance.US order book via REST API
+    - Higher latency than WebSocket (100-500ms vs 10-50ms)
+    - Matches actual execution venue (Binance.US)
+    - No testnet available
 
 ⚠️  WARNING: Binance.us does NOT have a testnet. Live mode uses REAL MONEY.
     Always start with --dry-run mode to test before risking capital.
@@ -37,7 +43,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from loguru import logger
-from app.adapters.feed_binance_l2 import BinanceFuturesL2Feed
+from app.adapters.feed_binance_us_l2 import BinanceUSL2Feed
 from app.adapters.broker_binance_us import BinanceUSSpotBroker
 from app.strategies.alpha_l2_imbalance import L2ImbalanceStrategy, L2StrategyConfig
 from app.engine.risk_manager import RiskManager
@@ -107,12 +113,11 @@ class BinanceUSL2IntegrationDemo:
         logger.info("STARTING BINANCE.US SPOT L2 DEMO")
         logger.info("="*80)
 
-        # Initialize L2 feed (using Binance Futures for L2 data, testnet mode)
-        feed = BinanceFuturesL2Feed(
+        # Initialize L2 feed (using Binance.US REST API for actual market data)
+        feed = BinanceUSL2Feed(
             symbol=self.symbol,
             depth=5,
-            update_interval_ms=100,
-            testnet=True  # Use testnet for L2 feed data (free)
+            poll_interval_ms=500  # 500ms polling (vs 100ms WebSocket)
         )
 
         # Strategy config - SPOT-ONLY MODE
@@ -158,17 +163,23 @@ class BinanceUSL2IntegrationDemo:
                 logger.warning("Falling back to DRY-RUN mode")
                 self.dry_run = True
 
-        # Fetch initial snapshot
-        await feed._fetch_snapshot()
-        logger.info(f"Order book snapshot loaded: {len(feed.order_book.bids)} bids, {len(feed.order_book.asks)} asks")
+        # Start REST polling in background
+        feed_task = asyncio.create_task(feed.start())
 
-        # Connect WebSocket
-        await feed._connect_websocket()
-        logger.info("WebSocket connected")
+        # Wait for first order book snapshot
+        logger.info("Waiting for initial order book snapshot...")
+        for _ in range(10):
+            if feed.last_update_time > 0:
+                break
+            await asyncio.sleep(0.5)
 
-        # Start processing messages
-        feed.running = True
-        message_task = asyncio.create_task(feed._process_ws_messages())
+        if feed.last_update_time == 0:
+            logger.error("Failed to fetch initial order book snapshot")
+            feed.stop()
+            return
+
+        logger.info(f"Order book loaded: {len(feed.order_book.bids)} bids, {len(feed.order_book.asks)} asks")
+        logger.info(f"Polling every {feed.poll_interval_ms}ms from Binance.US")
 
         # Main trading loop
         start_time = time.time()
@@ -177,7 +188,7 @@ class BinanceUSL2IntegrationDemo:
 
         try:
             while time.time() - start_time < self.duration_seconds:
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.1)
 
                 now = time.time()
                 if now - last_bar_time >= bar_interval:
@@ -192,9 +203,8 @@ class BinanceUSL2IntegrationDemo:
         except KeyboardInterrupt:
             logger.info("Demo stopped by user")
         finally:
-            feed.running = False
-            if feed.ws_connection:
-                await feed.ws_connection.close()
+            feed.stop()
+            await feed_task
 
         # Print summary
         self._print_summary(start_time)
