@@ -13,7 +13,7 @@ The MFT trading bot now supports **three broker options** for different use case
 ## 1. Kraken Futures Broker ✅
 
 **Status**: Fully implemented and tested
-**File**: `app/adapters/broker_kraken.py`
+**File**: `src/trade_engine/adapters/brokers/kraken.py`
 **Tests**: `tests/unit/test_broker_kraken.py` (13/13 passing, 87% coverage)
 
 ### Features
@@ -65,9 +65,9 @@ KRAKEN_API_SECRET=your_live_secret_here
 ## 2. Binance.us Spot Broker ✅
 
 **Status**: Fully implemented and tested
-**File**: `app/adapters/broker_binance_us.py`
+**File**: `src/trade_engine/adapters/brokers/binance_us.py`
 **Tests**: `tests/unit/test_broker_binance_us.py` (22/22 passing, 95% coverage)
-**L2 Feed**: `app/adapters/feed_binance_us_l2.py` (REST-based polling)
+**L2 Feed**: `src/trade_engine/adapters/feeds/binance_us_l2.py` (REST-based polling)
 **L2 Tests**: `tests/unit/test_feed_binance_us_l2.py` (14/14 passing)
 
 ### Features
@@ -174,7 +174,7 @@ python tools/demo_binanceus_l2_integration.py --symbol BTCUSDT --duration 120 --
 ## 3. Binance International Futures (Testnet)
 
 **Status**: Fully implemented (blocked in US)
-**File**: `app/adapters/broker_binance.py`
+**File**: `src/trade_engine/adapters/brokers/binance.py`
 **Tests**: `tests/unit/test_broker_binance.py` (15/15 passing)
 
 ### Why Not Recommended

@@ -111,13 +111,15 @@ class PositionDatabase:
             cursor = conn.cursor()
 
             # Positions table - tracks OPEN positions
+            # 🔑 CRITICAL: Store financial values as TEXT to preserve Decimal precision
+            # SQLite REAL uses float64 which can lose precision for financial calculations
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS positions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     symbol TEXT NOT NULL,
                     side TEXT NOT NULL,
-                    entry_price REAL NOT NULL,
-                    qty REAL NOT NULL,
+                    entry_price TEXT NOT NULL,  -- Decimal as TEXT
+                    qty TEXT NOT NULL,          -- Decimal as TEXT
                     broker TEXT NOT NULL,
                     entry_time INTEGER NOT NULL,
                     created_at TEXT NOT NULL,
@@ -126,16 +128,17 @@ class PositionDatabase:
             """)
 
             # Trades table - tracks CLOSED positions
+            # 🔑 CRITICAL: Store financial values as TEXT to preserve Decimal precision
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS trades (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     symbol TEXT NOT NULL,
                     side TEXT NOT NULL,
-                    entry_price REAL NOT NULL,
-                    exit_price REAL NOT NULL,
-                    qty REAL NOT NULL,
-                    pnl REAL NOT NULL,
-                    pnl_pct REAL NOT NULL,
+                    entry_price TEXT NOT NULL,  -- Decimal as TEXT
+                    exit_price TEXT NOT NULL,   -- Decimal as TEXT
+                    qty TEXT NOT NULL,          -- Decimal as TEXT
+                    pnl TEXT NOT NULL,          -- Decimal as TEXT
+                    pnl_pct TEXT NOT NULL,      -- Decimal as TEXT
                     duration_seconds INTEGER NOT NULL,
                     exit_reason TEXT NOT NULL,
                     broker TEXT NOT NULL,
@@ -146,6 +149,7 @@ class PositionDatabase:
             """)
 
             # Daily statistics table
+            # 🔑 CRITICAL: Store financial values as TEXT to preserve Decimal precision
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS daily_stats (
                     date TEXT PRIMARY KEY,
@@ -153,9 +157,9 @@ class PositionDatabase:
                     trades_count INTEGER NOT NULL,
                     winning_trades INTEGER NOT NULL,
                     losing_trades INTEGER NOT NULL,
-                    total_pnl REAL NOT NULL,
-                    win_rate REAL NOT NULL,
-                    profit_factor REAL NOT NULL,
+                    total_pnl TEXT NOT NULL,      -- Decimal as TEXT
+                    win_rate TEXT NOT NULL,       -- Decimal as TEXT
+                    profit_factor TEXT NOT NULL,  -- Decimal as TEXT
                     created_at TEXT NOT NULL
                 )
             """)
@@ -239,8 +243,8 @@ class PositionDatabase:
                 """, (
                     symbol,
                     side,
-                    float(entry_price),
-                    float(qty),
+                    str(entry_price),  # 🔑 Store Decimal as TEXT
+                    str(qty),          # 🔑 Store Decimal as TEXT
                     broker,
                     int(time.time()),
                     datetime.now(timezone.utc).isoformat()  # 🔑 UTC (Issue #6)
@@ -327,7 +331,7 @@ class PositionDatabase:
                     UPDATE positions
                     SET entry_price = ?, qty = ?
                     WHERE id = ?
-                """, (float(new_entry_price), float(new_qty), position_id))
+                """, (str(new_entry_price), str(new_qty), position_id))  # 🔑 Store Decimal as TEXT
 
                 conn.commit()
 
@@ -426,11 +430,11 @@ class PositionDatabase:
                 """, (
                     symbol,
                     side,
-                    float(entry_price),
-                    float(exit_price),
-                    float(qty),
-                    float(pnl),
-                    float(pnl_pct),
+                    str(entry_price),  # 🔑 Store Decimal as TEXT
+                    str(exit_price),   # 🔑 Store Decimal as TEXT
+                    str(qty),          # 🔑 Store Decimal as TEXT
+                    str(pnl),          # 🔑 Store Decimal as TEXT
+                    str(pnl_pct),      # 🔑 Store Decimal as TEXT
                     duration_seconds,
                     exit_reason,
                     broker,

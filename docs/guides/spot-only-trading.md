@@ -4,7 +4,7 @@
 
 The L2 Imbalance Strategy now supports **spot-only mode** for use with spot trading platforms like Binance.us that don't support shorting.
 
-**Implementation**: `app/strategies/alpha_l2_imbalance.py`
+**Implementation**: `src/trade_engine/domain/strategies/alpha_l2_imbalance.py`
 **Tests**: `tests/unit/test_alpha_l2_imbalance.py` (23/23 passing, 97% coverage)
 
 ---
