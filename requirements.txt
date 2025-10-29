@@ -17,6 +17,10 @@ requests>=2.31.0  # HTTP requests for Binance API (used by broker_binance.py)
 # Data processing
 pandas>=2.2.0  # Updated for Python 3.13 compatibility
 numpy>=1.26.0  # Updated for Python 3.13 compatibility
+sortedcontainers>=2.4.0  # Efficient sorted data structures for L2 order book
+
+# WebSocket for real-time L2 data feeds
+websockets>=12.0  # L2 order book WebSocket streams
 
 # Multi-source data adapters (added for data quality / cross-validation)
 yfinance>=0.2.40  # Yahoo Finance data (stocks, ETFs, indices, crypto)
