@@ -247,14 +247,14 @@ class MetricsCalculator:
 
         mean_return = sum(returns) / len(returns)
 
-        # Standard deviation (convert to float only for math.sqrt)
+        # Standard deviation (keep Decimal precision)
         variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
-        std_dev = float(variance) ** 0.5  # Use ** 0.5 instead of math.sqrt for Decimal
+        std_dev = variance.sqrt()  # Use Decimal's sqrt method for proper precision
 
         if std_dev == 0:
             return 0.0
 
-        sharpe = float(mean_return) / std_dev
+        sharpe = float(mean_return / std_dev)  # Convert to float only at final step
 
         # Annualize (assuming ~252 trading days per year, ~60 trades per day for MFT)
         # For L2 scalping with 5-60 second holds, could have ~100+ trades per day
@@ -287,12 +287,12 @@ class MetricsCalculator:
             return float('inf')  # No downside volatility
 
         downside_variance = sum(r ** 2 for r in negative_returns) / len(returns)
-        downside_dev = float(downside_variance) ** 0.5  # Use ** 0.5 for Decimal compatibility
+        downside_dev = downside_variance.sqrt()  # Use Decimal's sqrt method for proper precision
 
         if downside_dev == 0:
             return 0.0
 
-        sortino = float(mean_return) / downside_dev
+        sortino = float(mean_return / downside_dev)  # Convert to float only at final step
 
         # Annualize
         trades_per_year = 252 * 50

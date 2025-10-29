@@ -21,8 +21,8 @@ from loguru import logger
 
 from trade_engine.services.backtest.l2_data_loader import L2DataLoader
 from trade_engine.services.backtest.metrics import MetricsCalculator, Trade, BacktestMetrics, format_metrics
-from trade_engine.services.strategies.alpha_l2_imbalance import L2ImbalanceStrategy, L2StrategyConfig
-from trade_engine.core.engine.types import Bar
+from trade_engine.domain.strategies.alpha_l2_imbalance import L2ImbalanceStrategy, L2StrategyConfig
+from trade_engine.core.types import Bar
 
 
 class BacktestEngine:

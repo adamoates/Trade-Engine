@@ -204,8 +204,8 @@ class L2ImbalanceStrategy(Strategy):
             strength = Decimal("1.0") - imbalance  # >0 is bearish
 
         # Filter weak signals
-        if strength < self.config.min_signal_strength - Decimal("1.0"):
-            logger.debug(f"Signal too weak: strength={strength:.2f}")
+        if strength < self.config.min_signal_strength:
+            logger.debug(f"Signal too weak: strength={strength:.2f}, min required={self.config.min_signal_strength}")
             return None
 
         # Calculate position size (quantity in base currency)

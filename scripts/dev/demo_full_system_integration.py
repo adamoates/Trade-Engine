@@ -32,11 +32,11 @@ from loguru import logger
 # Import all our components
 from trade_engine.services.data.web3_signals import Web3DataSource, Web3Signal
 from trade_engine.services.data.signal_normalizer import SignalNormalizer
-from trade_engine.services.strategies.market_regime import detect_regime, MarketRegime
-from trade_engine.services.strategies.alpha_bollinger import BollingerBandStrategy
-from trade_engine.services.strategies.alpha_ma_crossover import MovingAverageCrossover
-from trade_engine.services.strategies.signal_confirmation import SignalConfirmation, ConfirmationType
-from trade_engine.core.engine.risk_manager import RiskManager, RiskCheck
+from trade_engine.domain.strategies.market_regime import detect_regime, MarketRegime
+from trade_engine.domain.strategies.alpha_bollinger import BollingerBandStrategy
+from trade_engine.domain.strategies.alpha_ma_crossover import MovingAverageCrossover
+from trade_engine.domain.strategies.signal_confirmation import SignalConfirmation, ConfirmationType
+from trade_engine.domain.risk.risk_manager import RiskManager, RiskCheck
 
 # Configure logger
 logger.remove()

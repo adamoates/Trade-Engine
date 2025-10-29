@@ -27,7 +27,7 @@ from trade_engine.services.backtest.metrics import (
     format_metrics
 )
 from trade_engine.services.backtest.engine import BacktestEngine, run_backtest
-from trade_engine.services.strategies.alpha_l2_imbalance import L2StrategyConfig
+from trade_engine.domain.strategies.alpha_l2_imbalance import L2StrategyConfig
 
 __all__ = [
     "L2DataLoader",
