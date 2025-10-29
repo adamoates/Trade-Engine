@@ -70,7 +70,8 @@ class BinanceUSL2Feed:
         symbol: str,
         depth: int = 5,
         poll_interval_ms: int = 500,
-        rate_limit_per_second: int = 10
+        rate_limit_per_second: int = 10,
+        staleness_threshold_seconds: float = 5.0
     ):
         """
         Initialize Binance.US L2 feed.
@@ -80,11 +81,13 @@ class BinanceUSL2Feed:
             depth: Order book depth to fetch (5, 10, 20, 50, 100, 500, 1000, 5000)
             poll_interval_ms: Polling interval in milliseconds (default 500ms)
             rate_limit_per_second: Max requests per second (default 10)
+            staleness_threshold_seconds: Max age before data is considered stale (default 5.0s)
         """
         self.symbol = symbol.upper()
         self.depth = depth
         self.poll_interval_ms = poll_interval_ms
         self.rate_limit_per_second = rate_limit_per_second
+        self.staleness_threshold_seconds = staleness_threshold_seconds
 
         # Order book state
         self.order_book = OrderBook(symbol=self.symbol)
@@ -98,6 +101,10 @@ class BinanceUSL2Feed:
         # Performance tracking
         self.fetch_count = 0
         self.total_latency_ms = 0
+
+        # Staleness tracking
+        self.consecutive_failures = 0
+        self.last_staleness_warning = 0
 
         logger.info(
             f"BinanceUSL2Feed initialized | "
@@ -131,6 +138,20 @@ class BinanceUSL2Feed:
                 # Track performance
                 self.fetch_count += 1
                 self.total_latency_ms += latency_ms
+                self.consecutive_failures = 0  # Reset on success
+
+                # Check for staleness and warn if needed
+                if self.is_stale():
+                    staleness = self.get_staleness_seconds()
+                    # Only warn once per minute to avoid log spam
+                    if time.time() - self.last_staleness_warning > 60:
+                        logger.warning(
+                            f"⚠️  Order book data is STALE | "
+                            f"Age: {staleness:.1f}s | "
+                            f"Threshold: {self.staleness_threshold_seconds}s | "
+                            f"Symbol: {self.symbol}"
+                        )
+                        self.last_staleness_warning = time.time()
 
                 # Log performance every 60 seconds
                 if self.fetch_count % 120 == 0:  # 120 fetches = 1 minute at 500ms
@@ -146,8 +167,15 @@ class BinanceUSL2Feed:
                 await asyncio.sleep(self.poll_interval_ms / 1000.0)
 
             except Exception as e:
-                logger.error(f"Error fetching order book: {e}")
-                await asyncio.sleep(1.0)  # Back off on error
+                self.consecutive_failures += 1
+                logger.error(
+                    f"Error fetching order book: {e} | "
+                    f"Consecutive failures: {self.consecutive_failures}"
+                )
+
+                # Back off exponentially on repeated failures
+                backoff = min(5.0, 1.0 * (2 ** min(self.consecutive_failures - 1, 4)))
+                await asyncio.sleep(backoff)
 
     def stop(self):
         """Stop polling."""
@@ -236,6 +264,38 @@ class BinanceUSL2Feed:
             return 0.0
         return self.total_latency_ms / self.fetch_count
 
+    def get_staleness_seconds(self) -> float:
+        """
+        Get how long since last successful order book update.
+
+        Returns:
+            Age of data in seconds (0.0 if never updated)
+        """
+        if self.last_update_time == 0:
+            return 0.0
+        return time.time() - self.last_update_time
+
+    def is_stale(self, threshold_seconds: Optional[float] = None) -> bool:
+        """
+        Check if order book data is stale.
+
+        Args:
+            threshold_seconds: Override staleness threshold (uses instance default if None)
+
+        Returns:
+            True if data is stale (hasn't updated in threshold_seconds)
+
+        Example:
+            if feed.is_stale():
+                logger.warning("Order book data is stale, skipping trade")
+                return
+        """
+        if self.last_update_time == 0:
+            return True  # Never updated = stale
+
+        threshold = threshold_seconds if threshold_seconds is not None else self.staleness_threshold_seconds
+        return self.get_staleness_seconds() > threshold
+
 
 # Async context manager support
 class BinanceUSL2FeedContext:
@@ -247,11 +307,18 @@ class BinanceUSL2FeedContext:
             imbalance = feed.order_book.calculate_imbalance(depth=5)
     """
 
-    def __init__(self, symbol: str, depth: int = 5, poll_interval_ms: int = 500):
+    def __init__(
+        self,
+        symbol: str,
+        depth: int = 5,
+        poll_interval_ms: int = 500,
+        staleness_threshold_seconds: float = 5.0
+    ):
         self.feed = BinanceUSL2Feed(
             symbol=symbol,
             depth=depth,
-            poll_interval_ms=poll_interval_ms
+            poll_interval_ms=poll_interval_ms,
+            staleness_threshold_seconds=staleness_threshold_seconds
         )
         self.task = None
 
