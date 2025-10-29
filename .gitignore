@@ -66,3 +66,12 @@ credentials.json
 # Live trading config (contains real API keys, positions, etc.)
 app/config/live.yaml
 config/live.yaml
+
+# Benchmark and performance test results
+benchmark_results/
+!benchmark_results/.gitkeep
+
+# Paper trading data (SQLite databases)
+data/*.db
+data/*.db-journal
+!data/.gitkeep

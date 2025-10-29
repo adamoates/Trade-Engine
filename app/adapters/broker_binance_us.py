@@ -163,10 +163,11 @@ class BinanceUSSpotBroker(Broker):
 
         result = self._request("POST", "/api/v3/order", params=params, signed=True)
 
-        order_id = str(result.get("orderId"))
+        order_id = result.get("orderId")
         if not order_id:
             raise BinanceUSError("Order placed but no orderId returned")
 
+        order_id = str(order_id)
         logger.info(f"BUY order placed: {symbol} | Qty: {qty} | OrderID: {order_id}")
         return order_id
 
@@ -204,10 +205,11 @@ class BinanceUSSpotBroker(Broker):
 
         result = self._request("POST", "/api/v3/order", params=params, signed=True)
 
-        order_id = str(result.get("orderId"))
+        order_id = result.get("orderId")
         if not order_id:
             raise BinanceUSError("Order placed but no orderId returned")
 
+        order_id = str(order_id)
         logger.info(f"SELL order placed: {symbol} | Qty: {qty} | OrderID: {order_id}")
         return order_id
 

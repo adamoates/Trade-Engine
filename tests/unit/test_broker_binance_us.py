@@ -95,12 +95,12 @@ class TestSignature:
 class TestBuyOrder:
     """Test BUY order placement (open long position)."""
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_buy_success(self, mock_session_class):
+    def test_buy_success(self, mock_post):
         """Test successful BUY order."""
         # Mock response
         mock_response = MagicMock()
@@ -111,11 +111,7 @@ class TestBuyOrder:
             "executedQty": "0.001"
         }
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.post.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_post.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         order_id = broker.buy(
@@ -124,23 +120,19 @@ class TestBuyOrder:
         )
 
         assert order_id == "12345678"
-        mock_session.post.assert_called_once()
+        mock_post.assert_called_once()
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_buy_with_decimal_qty(self, mock_session_class):
+    def test_buy_with_decimal_qty(self, mock_post):
         """Test BUY order with Decimal quantity (NOT float)."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"orderId": 12345678}
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.post.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_post.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         order_id = broker.buy(
@@ -149,17 +141,17 @@ class TestBuyOrder:
         )
 
         # Verify qty was converted to string (not float)
-        call_args = mock_session.post.call_args
+        call_args = mock_post.call_args
         params = call_args[1]["params"]
         assert params["quantity"] == "0.00123456"
         assert isinstance(params["quantity"], str)
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_buy_api_error(self, mock_session_class):
+    def test_buy_api_error(self, mock_post):
         """Test BUY order with API error."""
         import requests
 
@@ -167,32 +159,24 @@ class TestBuyOrder:
         mock_response.status_code = 400
         mock_response.text = '{"code":-1111,"msg":"Insufficient balance"}'
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-
-        mock_session = MagicMock()
-        mock_session.post.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_post.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
 
         with pytest.raises(BinanceUSError, match="HTTP 400"):
             broker.buy(symbol="BTCUSDT", qty=Decimal("0.001"))
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_buy_no_order_id(self, mock_session_class):
+    def test_buy_no_order_id(self, mock_post):
         """Test BUY order fails if no orderId returned."""
         mock_response = MagicMock()
         mock_response.json.return_value = {}  # No orderId
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.post.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_post.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
 
@@ -203,12 +187,12 @@ class TestBuyOrder:
 class TestSellOrder:
     """Test SELL order placement (close long position, NOT short)."""
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_sell_success(self, mock_session_class):
+    def test_sell_success(self, mock_post):
         """Test successful SELL order (closes long position)."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -218,11 +202,7 @@ class TestSellOrder:
             "executedQty": "0.001"
         }
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.post.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_post.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         order_id = broker.sell(
@@ -231,28 +211,24 @@ class TestSellOrder:
         )
 
         assert order_id == "87654321"
-        mock_session.post.assert_called_once()
+        mock_post.assert_called_once()
 
         # Verify it's a SELL order
-        call_args = mock_session.post.call_args
+        call_args = mock_post.call_args
         params = call_args[1]["params"]
         assert params["side"] == "SELL"
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_sell_with_decimal_qty(self, mock_session_class):
+    def test_sell_with_decimal_qty(self, mock_post):
         """Test SELL order with Decimal quantity (NOT float)."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"orderId": 87654321}
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.post.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_post.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         order_id = broker.sell(
@@ -261,7 +237,7 @@ class TestSellOrder:
         )
 
         # Verify qty was converted to string (not float)
-        call_args = mock_session.post.call_args
+        call_args = mock_post.call_args
         params = call_args[1]["params"]
         assert params["quantity"] == "0.00234567"
         assert isinstance(params["quantity"], str)
@@ -270,12 +246,13 @@ class TestSellOrder:
 class TestCloseAll:
     """Test close_all() - sell all holdings for a symbol."""
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_close_all_with_position(self, mock_session_class):
+    def test_close_all_with_position(self, mock_get, mock_post):
         """Test close_all sells existing holdings."""
         # Mock positions() to return holdings
         mock_response_account = MagicMock()
@@ -297,28 +274,26 @@ class TestCloseAll:
         mock_response_sell.json.return_value = {"orderId": 99999}
         mock_response_sell.raise_for_status = Mock()
 
-        mock_session = MagicMock()
-        mock_session.get.side_effect = [mock_response_account, mock_response_ticker]
-        mock_session.post.return_value = mock_response_sell
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.side_effect = [mock_response_account, mock_response_ticker]
+        mock_post.return_value = mock_response_sell
 
         broker = BinanceUSSpotBroker()
         broker.close_all("BTCUSDT")
 
         # Should have called sell with the BTC balance
-        mock_session.post.assert_called_once()
-        call_args = mock_session.post.call_args
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
         params = call_args[1]["params"]
         assert params["side"] == "SELL"
         assert params["quantity"] == "0.5"  # Total BTC holdings
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.post")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_close_all_no_position(self, mock_session_class):
+    def test_close_all_no_position(self, mock_get, mock_post):
         """Test close_all does nothing if no holdings."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -328,28 +303,24 @@ class TestCloseAll:
             ]
         }
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.get.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         broker.close_all("BTCUSDT")
 
         # Should NOT call sell
-        mock_session.post.assert_not_called()
+        mock_post.assert_not_called()
 
 
 class TestPositions:
     """Test position tracking (holdings in spot trading)."""
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_positions_with_holdings(self, mock_session_class):
+    def test_positions_with_holdings(self, mock_get):
         """Test positions() returns holdings."""
         # Mock account balances
         mock_response_account = MagicMock()
@@ -371,14 +342,11 @@ class TestPositions:
         mock_response_eth.json.return_value = {"price": "3000.0"}
         mock_response_eth.raise_for_status = Mock()
 
-        mock_session = MagicMock()
-        mock_session.get.side_effect = [
+        mock_get.side_effect = [
             mock_response_account,
             mock_response_btc,
             mock_response_eth
         ]
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
 
         broker = BinanceUSSpotBroker()
         positions = broker.positions()
@@ -401,12 +369,12 @@ class TestPositions:
         assert eth_pos.symbol == "ETHUSDT"
         assert eth_pos.qty == Decimal("5.0")
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_positions_empty(self, mock_session_class):
+    def test_positions_empty(self, mock_get):
         """Test positions() with no holdings."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -416,11 +384,7 @@ class TestPositions:
             ]
         }
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.get.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         positions = broker.positions()
@@ -428,12 +392,12 @@ class TestPositions:
         # Should return empty dict (USDT is quote currency, skipped)
         assert len(positions) == 0
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_positions_skips_quote_currency(self, mock_session_class):
+    def test_positions_skips_quote_currency(self, mock_get):
         """Test positions() skips USDT/USD (quote currencies)."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -443,11 +407,7 @@ class TestPositions:
             ]
         }
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.get.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         positions = broker.positions()
@@ -459,12 +419,12 @@ class TestPositions:
 class TestBalance:
     """Test account balance queries."""
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_balance_success(self, mock_session_class):
+    def test_balance_success(self, mock_get):
         """Test successful balance query."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -475,11 +435,7 @@ class TestBalance:
             ]
         }
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.get.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         balance = broker.balance()
@@ -488,12 +444,12 @@ class TestBalance:
         assert isinstance(balance, Decimal)
         assert balance == Decimal("12345.67")
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_balance_no_usdt(self, mock_session_class):
+    def test_balance_no_usdt(self, mock_get):
         """Test balance query with no USDT."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -503,11 +459,7 @@ class TestBalance:
             ]
         }
         mock_response.raise_for_status = Mock()
-
-        mock_session = MagicMock()
-        mock_session.get.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
         balance = broker.balance()
@@ -515,12 +467,12 @@ class TestBalance:
         # Should return 0
         assert balance == Decimal("0")
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_balance_api_error(self, mock_session_class):
+    def test_balance_api_error(self, mock_get):
         """Test balance query with API error."""
         import requests
 
@@ -528,11 +480,7 @@ class TestBalance:
         mock_response.status_code = 401
         mock_response.text = '{"code":-2015,"msg":"Invalid API-key"}'
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-
-        mock_session = MagicMock()
-        mock_session.get.return_value = mock_response
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.return_value = mock_response
 
         broker = BinanceUSSpotBroker()
 
@@ -543,36 +491,28 @@ class TestBalance:
 class TestRequestMethod:
     """Test internal _request method."""
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
+    @patch("app.adapters.broker_binance_us.requests.get")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_request_timeout(self, mock_session_class):
+    def test_request_timeout(self, mock_get):
         """Test request with timeout."""
         import requests
 
-        mock_session = MagicMock()
-        mock_session.get.side_effect = requests.exceptions.Timeout()
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
+        mock_get.side_effect = requests.exceptions.Timeout()
 
         broker = BinanceUSSpotBroker()
 
         with pytest.raises(BinanceUSError, match="Request failed"):
             broker._request("GET", "/api/v3/account", signed=True)
 
-    @patch("app.adapters.broker_binance_us.requests.Session")
     @patch.dict("os.environ", {
         "BINANCE_US_API_KEY": "test_key",
         "BINANCE_US_API_SECRET": "test_secret"
     })
-    def test_request_unsupported_method(self, mock_session_class):
+    def test_request_unsupported_method(self):
         """Test request with unsupported HTTP method."""
-        mock_session = MagicMock()
-        mock_session.headers = {}
-        mock_session_class.return_value = mock_session
-
         broker = BinanceUSSpotBroker()
 
         with pytest.raises(BinanceUSError, match="Unsupported HTTP method"):
