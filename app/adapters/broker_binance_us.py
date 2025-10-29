@@ -5,6 +5,9 @@ Implements Broker interface for Binance.us spot market.
 **NOTE**: Spot trading = LONG ONLY (no shorting, no leverage).
 
 CRITICAL: All price/quantity conversions use Decimal (NON-NEGOTIABLE per CLAUDE.md).
+
+**Entry Price Tracking**: Uses PositionDatabase for persistent entry price storage,
+enabling accurate P&L calculations for spot holdings (which exchanges don't track natively).
 """
 
 import os
@@ -18,6 +21,7 @@ from loguru import logger
 
 from app.constants import BINANCE_REQUEST_TIMEOUT_SECONDS
 from app.engine.types import Broker, Position
+from app.engine.position_database import PositionDatabase, PositionDatabaseError
 
 
 class BinanceUSError(Exception):
@@ -44,12 +48,17 @@ class BinanceUSSpotBroker(Broker):
 
     BASE_URL = "https://api.binance.us"
 
-    def __init__(self, recv_window: int = 5000):
+    def __init__(
+        self,
+        recv_window: int = 5000,
+        db_path: str = "data/positions_binance_us.db"
+    ):
         """
         Initialize broker.
 
         Args:
             recv_window: API request valid window (ms), default 5000ms
+            db_path: Path to position database for entry price tracking
         """
         self.recv_window = recv_window
 
@@ -62,7 +71,13 @@ class BinanceUSSpotBroker(Broker):
                 "Missing API credentials. Set BINANCE_US_API_KEY and BINANCE_US_API_SECRET"
             )
 
-        logger.info("BinanceUSSpotBroker initialized (SPOT ONLY - LONG ONLY)")
+        # Position database for entry price tracking
+        self.position_db = PositionDatabase(db_path=db_path)
+
+        logger.info(
+            "BinanceUSSpotBroker initialized (SPOT ONLY - LONG ONLY) | "
+            f"Entry price tracking: {db_path}"
+        )
 
     def _sign(self, params: dict) -> str:
         """Generate HMAC SHA256 signature."""
@@ -139,6 +154,9 @@ class BinanceUSSpotBroker(Broker):
         """
         Place market BUY order (long position, spot trading).
 
+        **Entry Price Tracking**: Queries fill price after execution and stores
+        in database for accurate P&L calculation.
+
         Args:
             symbol: Trading pair (e.g., "BTCUSDT")
             qty: Quantity in base currency (Decimal)
@@ -168,7 +186,61 @@ class BinanceUSSpotBroker(Broker):
             raise BinanceUSError("Order placed but no orderId returned")
 
         order_id = str(order_id)
-        logger.info(f"BUY order placed: {symbol} | Qty: {qty} | OrderID: {order_id}")
+
+        # Get actual fill price for entry price tracking
+        try:
+            # Query order details to get fill price
+            order_details = self._request(
+                "GET",
+                "/api/v3/order",
+                params={"symbol": symbol, "orderId": order_id},
+                signed=True
+            )
+
+            # Calculate average fill price from fills
+            fills = order_details.get("fills", [])
+            if fills:
+                total_qty = Decimal("0")
+                total_cost = Decimal("0")
+
+                for fill in fills:
+                    fill_price = Decimal(str(fill["price"]))
+                    fill_qty = Decimal(str(fill["qty"]))
+                    total_qty += fill_qty
+                    total_cost += fill_price * fill_qty
+
+                avg_fill_price = total_cost / total_qty if total_qty > 0 else Decimal("0")
+            else:
+                # Fallback: use current market price
+                ticker_result = self._request(
+                    "GET",
+                    "/api/v3/ticker/price",
+                    params={"symbol": symbol}
+                )
+                avg_fill_price = Decimal(str(ticker_result.get("price", 0)))
+
+            # Store position in database
+            self.position_db.open_position(
+                symbol=symbol,
+                side="long",
+                entry_price=avg_fill_price,
+                qty=qty,
+                broker="binance_us"
+            )
+
+            logger.info(
+                f"BUY order placed: {symbol} | Qty: {qty} | "
+                f"Entry price: {avg_fill_price} | OrderID: {order_id}"
+            )
+
+        except PositionDatabaseError as e:
+            logger.warning(
+                f"Position already tracked for {symbol}: {e} | "
+                "P&L may be inaccurate if adding to position"
+            )
+        except Exception as e:
+            logger.error(f"Failed to track entry price for {symbol}: {e}")
+
         return order_id
 
     def sell(
@@ -183,6 +255,9 @@ class BinanceUSSpotBroker(Broker):
 
         **NOTE**: This SELLS your holdings, NOT opening a short position.
         Binance.us spot does not support shorting.
+
+        **P&L Tracking**: Calculates realized P&L using stored entry price
+        and closes position in database.
 
         Args:
             symbol: Trading pair (e.g., "BTCUSDT")
@@ -210,7 +285,61 @@ class BinanceUSSpotBroker(Broker):
             raise BinanceUSError("Order placed but no orderId returned")
 
         order_id = str(order_id)
-        logger.info(f"SELL order placed: {symbol} | Qty: {qty} | OrderID: {order_id}")
+
+        # Get actual fill price for P&L calculation
+        try:
+            # Query order details to get fill price
+            order_details = self._request(
+                "GET",
+                "/api/v3/order",
+                params={"symbol": symbol, "orderId": order_id},
+                signed=True
+            )
+
+            # Calculate average fill price from fills
+            fills = order_details.get("fills", [])
+            if fills:
+                total_qty = Decimal("0")
+                total_cost = Decimal("0")
+
+                for fill in fills:
+                    fill_price = Decimal(str(fill["price"]))
+                    fill_qty = Decimal(str(fill["qty"]))
+                    total_qty += fill_qty
+                    total_cost += fill_price * fill_qty
+
+                avg_fill_price = total_cost / total_qty if total_qty > 0 else Decimal("0")
+            else:
+                # Fallback: use current market price
+                ticker_result = self._request(
+                    "GET",
+                    "/api/v3/ticker/price",
+                    params={"symbol": symbol}
+                )
+                avg_fill_price = Decimal(str(ticker_result.get("price", 0)))
+
+            # Close position in database and calculate P&L
+            trade = self.position_db.close_position(
+                symbol=symbol,
+                exit_price=avg_fill_price,
+                exit_reason="manual_close",
+                broker="binance_us"
+            )
+
+            logger.info(
+                f"SELL order placed: {symbol} | Qty: {qty} | "
+                f"Exit price: {avg_fill_price} | OrderID: {order_id} | "
+                f"P&L: {trade['pnl']:.2f} ({trade['pnl_pct']:.2f}%)"
+            )
+
+        except PositionDatabaseError as e:
+            logger.warning(
+                f"No position tracked for {symbol}: {e} | "
+                "P&L not calculated"
+            )
+        except Exception as e:
+            logger.error(f"Failed to calculate P&L for {symbol}: {e}")
+
         return order_id
 
     def close_all(self, symbol: str):
@@ -239,6 +368,9 @@ class BinanceUSSpotBroker(Broker):
     def positions(self) -> Dict[str, Position]:
         """
         Get all open positions (holdings in spot trading).
+
+        **Entry Price Tracking**: Uses PositionDatabase to retrieve stored entry
+        prices and calculate accurate P&L for spot holdings.
 
         Returns:
             Dict mapping symbol to Position (only long positions)
@@ -277,17 +409,48 @@ class BinanceUSSpotBroker(Broker):
                 logger.warning(f"Could not fetch price for {symbol}")
                 current_price = Decimal("0")
 
-            # Create position object
-            # Note: Spot trading doesn't track entry price easily
-            # For simplicity, use current_price as entry_price
+            # Try to get entry price from database
+            try:
+                db_position = self.position_db.get_position(symbol, broker="binance_us")
+
+                if db_position:
+                    # Calculate real P&L using stored entry price
+                    entry_price = db_position["entry_price"]
+                    pnl = (current_price - entry_price) * total
+                    pnl_pct = ((current_price - entry_price) / entry_price) * Decimal("100")
+
+                    logger.debug(
+                        f"Position P&L: {symbol} | "
+                        f"Entry: {entry_price} → Current: {current_price} | "
+                        f"P&L: {pnl:.2f} ({pnl_pct:.2f}%)"
+                    )
+                else:
+                    # No entry price tracked - use current price as entry (no P&L)
+                    entry_price = current_price
+                    pnl = Decimal("0")
+                    pnl_pct = Decimal("0")
+
+                    logger.warning(
+                        f"No entry price tracked for {symbol} | "
+                        "P&L calculation not available"
+                    )
+
+            except Exception as e:
+                logger.error(f"Failed to retrieve entry price for {symbol}: {e}")
+                # Fallback to no P&L calculation
+                entry_price = current_price
+                pnl = Decimal("0")
+                pnl_pct = Decimal("0")
+
+            # Create position object with accurate P&L
             position = Position(
                 symbol=symbol,
                 side="long",  # Spot is always long
                 qty=total,
-                entry_price=current_price,  # Approximate
+                entry_price=entry_price,
                 current_price=current_price,
-                pnl=Decimal("0"),  # Can't calculate without entry price
-                pnl_pct=Decimal("0")
+                pnl=pnl,
+                pnl_pct=pnl_pct
             )
 
             positions[symbol] = position
