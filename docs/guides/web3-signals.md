@@ -28,7 +28,7 @@ Trading only on exchange order book data misses critical market signals:
 
 ```python
 # Combine L2 order book with on-chain data
-from app.data.web3_signals import get_web3_signal
+from trade_engine.services.data.web3_signals import get_web3_signal
 
 # Get on-chain sentiment
 web3_signal = get_web3_signal()
@@ -51,7 +51,7 @@ if order_book_signal == "BUY" and web3_signal.signal == "BUY":
 ### Step 1: Import the Module
 
 ```python
-from app.data.web3_signals import Web3DataSource, get_web3_signal
+from trade_engine.services.data.web3_signals import Web3DataSource, get_web3_signal
 ```
 
 ### Step 2: Get Combined Signal (Easiest)
@@ -380,7 +380,7 @@ elif signal.confidence < 0.67:
 Only trade when **both** L2 imbalance and Web3 signals agree:
 
 ```python
-from app.data.web3_signals import get_web3_signal
+from trade_engine.services.data.web3_signals import get_web3_signal
 
 def should_trade(order_book):
     # Calculate L2 imbalance

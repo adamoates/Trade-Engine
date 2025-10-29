@@ -546,13 +546,13 @@ def find_matches(current_fingerprint, template_library, threshold=0.82):
 **Bar-Close Polling**:
 
 ```python
-# app/monitor/live_scanner.py
+# trade_engine/services/monitor/live_scanner.py
 import time
 from datetime import datetime, timedelta
-from app.features.extractor import build_fingerprint
-from app.features.matcher import find_matches
-from app.features.library import load_template_library
-from app.notifiers.telegram import send_telegram_alert
+from trade_engine.services.features.extractor import build_fingerprint
+from trade_engine.services.features.matcher import find_matches
+from trade_engine.services.features.library import load_template_library
+from trade_engine.services.notifiers.telegram import send_telegram_alert
 
 def monitor_live(config):
     """
@@ -615,11 +615,11 @@ def wait_for_bar_close(interval):
 **Interactive UI for Traders**:
 
 ```python
-# app/dashboard.py
+# trade_engine/dashboard.py
 import streamlit as st
 import pandas as pd
-from app.features.library import load_template_library, load_trade_history
-from app.features.matcher import find_matches
+from trade_engine.services.features.library import load_template_library, load_trade_history
+from trade_engine.services.features.matcher import find_matches
 
 st.set_page_config(page_title="MFT Trading Coach", layout="wide")
 

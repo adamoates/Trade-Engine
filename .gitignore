@@ -88,3 +88,8 @@ coverage.xml
 *.tmp
 *.bak
 .~*
+
+# Screenshots (documentation only, don't commit)
+Screenshot*.png
+screenshot*.png
+*.screenshot.png

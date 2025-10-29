@@ -530,9 +530,9 @@ def test_runner_processes_bar_under_1_second():
 # tests/smoke/test_imports.py (should exist)
 def test_all_modules_import():
     """All modules should import without errors"""
-    import app.adapters.broker_binance
-    import app.engine.runner_live
-    import app.engine.types
+    import trade_engine.adapters.brokers.binance
+    import trade_engine.services.trading.engine
+    import trade_engine.core.types
     import tools.fetch_binance_ohlcv
     import tools.validate_clean_ohlcv
 

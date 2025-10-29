@@ -553,3 +553,157 @@ class TestMultiBrokerSupport:
             kraken_positions = db.get_open_positions(broker="kraken")
             assert len(kraken_positions) == 1
             assert kraken_positions["BTCUSDT"]["entry_price"] == Decimal("50100.00")
+
+
+class TestDecimalPrecision:
+    """
+    Test Decimal precision in database storage and retrieval.
+
+    CRITICAL: Trading systems MUST use Decimal for financial calculations.
+    These tests verify that no precision is lost when storing/retrieving values.
+    """
+
+    def test_decimal_entry_price_storage_and_retrieval(self):
+        """Test that entry prices are stored and retrieved as Decimal without precision loss."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test_decimal.db")
+            db = PositionDatabase(db_path=db_path)
+
+            # Use precise Decimal value that would lose precision with float
+            entry_price = Decimal("50000.123456789")
+            qty = Decimal("0.123456789")
+
+            # Store position
+            db.open_position(
+                symbol="BTCUSDT",
+                side="long",
+                entry_price=entry_price,
+                qty=qty,
+                broker="test_broker"
+            )
+
+            # Retrieve position (filter by broker to get single-key result)
+            positions = db.get_open_positions(broker="test_broker")
+            retrieved_price = positions["BTCUSDT"]["entry_price"]
+            retrieved_qty = positions["BTCUSDT"]["qty"]
+
+            # Verify exact match (no precision loss)
+            assert isinstance(retrieved_price, Decimal), "Entry price must be Decimal type"
+            assert isinstance(retrieved_qty, Decimal), "Quantity must be Decimal type"
+            assert retrieved_price == entry_price, f"Precision lost: {retrieved_price} != {entry_price}"
+            assert retrieved_qty == qty, f"Precision lost: {retrieved_qty} != {qty}"
+
+    def test_decimal_pnl_calculation_precision(self):
+        """Test that P&L calculations maintain Decimal precision throughout."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test_decimal.db")
+            db = PositionDatabase(db_path=db_path)
+
+            # Use values that would cause rounding errors with float
+            entry_price = Decimal("50000.33")
+            exit_price = Decimal("50050.66")
+            qty = Decimal("0.123456789")
+
+            # Open and close position
+            db.open_position("BTCUSDT", "long", entry_price, qty, "test_broker")
+            trade = db.close_position("BTCUSDT", exit_price, "test_exit", "test_broker")
+            pnl = trade["pnl"]  # Return value uses "pnl", not "realized_pnl"
+
+            # Calculate expected P&L with Decimal precision
+            expected_pnl = (exit_price - entry_price) * qty
+
+            # Verify exact match
+            assert isinstance(pnl, Decimal), "P&L must be Decimal type"
+            assert pnl == expected_pnl, f"P&L calculation precision lost: {pnl} != {expected_pnl}"
+
+    def test_decimal_position_averaging_precision(self):
+        """Test that position averaging maintains Decimal precision."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test_decimal.db")
+            db = PositionDatabase(db_path=db_path)
+
+            # First position
+            entry_price_1 = Decimal("50000.11")
+            qty_1 = Decimal("0.1")
+
+            db.open_position("BTCUSDT", "long", entry_price_1, qty_1, "test_broker")
+
+            # Add to position
+            entry_price_2 = Decimal("50100.22")
+            qty_2 = Decimal("0.2")
+
+            # Note: add_to_position(symbol, qty, price, broker)
+            db.add_to_position("BTCUSDT", qty_2, entry_price_2, "test_broker")
+
+            # Calculate expected average with Decimal
+            total_cost = (entry_price_1 * qty_1) + (entry_price_2 * qty_2)
+            total_qty = qty_1 + qty_2
+            expected_avg = total_cost / total_qty
+
+            # Retrieve and verify (filter by broker)
+            positions = db.get_open_positions(broker="test_broker")
+            avg_entry = positions["BTCUSDT"]["entry_price"]
+            total_qty_retrieved = positions["BTCUSDT"]["qty"]
+
+            assert isinstance(avg_entry, Decimal), "Average entry price must be Decimal"
+            assert isinstance(total_qty_retrieved, Decimal), "Total qty must be Decimal"
+            assert avg_entry == expected_avg, f"Averaging precision lost: {avg_entry} != {expected_avg}"
+            assert total_qty_retrieved == total_qty, f"Qty precision lost: {total_qty_retrieved} != {total_qty}"
+
+    def test_decimal_type_preservation_across_database_operations(self):
+        """Test that Decimal type is preserved across all database operations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test_decimal.db")
+            db = PositionDatabase(db_path=db_path)
+
+            entry_price = Decimal("50000.50")
+            qty = Decimal("0.5")
+            exit_price = Decimal("50100.00")
+
+            # Open position
+            db.open_position("BTCUSDT", "long", entry_price, qty, "test_broker")
+
+            # Test get_open_positions preserves Decimal
+            positions = db.get_open_positions(broker="test_broker")
+            assert isinstance(positions["BTCUSDT"]["entry_price"], Decimal)
+            assert isinstance(positions["BTCUSDT"]["qty"], Decimal)
+
+            # Test close_position returns Decimal values
+            trade = db.close_position("BTCUSDT", exit_price, "test_exit", "test_broker")
+            assert isinstance(trade["entry_price"], Decimal)
+            assert isinstance(trade["exit_price"], Decimal)
+            assert isinstance(trade["qty"], Decimal)
+            assert isinstance(trade["pnl"], Decimal)
+            assert isinstance(trade["pnl_pct"], Decimal)
+
+    def test_no_float_conversion_errors(self):
+        """Test that no float conversion errors occur with problematic decimal values."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test_decimal.db")
+            db = PositionDatabase(db_path=db_path)
+
+            # Use values known to cause float rounding errors
+            problematic_values = [
+                (Decimal("0.1"), Decimal("0.2")),  # Classic float precision issue
+                (Decimal("1.1"), Decimal("2.2")),
+                (Decimal("0.123456789123456789"), Decimal("0.987654321987654321"))
+            ]
+
+            for entry_price, qty in problematic_values:
+                symbol = f"TEST{entry_price}"
+
+                # Open and immediately retrieve
+                db.open_position(symbol, "long", entry_price, qty, "test_broker")
+                positions = db.get_open_positions(broker="test_broker")
+
+                # Verify no precision loss
+                retrieved_price = positions[symbol]["entry_price"]
+                retrieved_qty = positions[symbol]["qty"]
+
+                assert retrieved_price == entry_price, \
+                    f"Float conversion detected: {retrieved_price} != {entry_price}"
+                assert retrieved_qty == qty, \
+                    f"Float conversion detected: {retrieved_qty} != {qty}"
+
+                # Clean up
+                db.close_position(symbol, entry_price, "test_exit", "test_broker")

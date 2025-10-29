@@ -66,10 +66,8 @@ class BinanceUSSpotBroker(Broker):
         self.api_key = os.getenv("BINANCE_US_API_KEY")
         self.api_secret = os.getenv("BINANCE_US_API_SECRET")
 
-        if not self.api_key or not self.api_secret:
-            raise BinanceUSError(
-                "Missing API credentials. Set BINANCE_US_API_KEY and BINANCE_US_API_SECRET"
-            )
+        # Validate credentials
+        self._validate_credentials()
 
         # Position database for entry price tracking
         self.position_db = PositionDatabase(db_path=db_path)
@@ -77,6 +75,59 @@ class BinanceUSSpotBroker(Broker):
         logger.info(
             "BinanceUSSpotBroker initialized (SPOT ONLY - LONG ONLY) | "
             f"Entry price tracking: {db_path}"
+        )
+
+    def _validate_credentials(self) -> None:
+        """
+        Validate API credentials format and presence.
+
+        Raises:
+            BinanceUSError: If credentials are missing or invalid
+
+        Security notes:
+            - Never logs actual credential values
+            - Only validates format, not authenticity (API will reject invalid creds)
+        """
+        # Check for missing credentials
+        if not self.api_key:
+            raise BinanceUSError(
+                "Missing BINANCE_US_API_KEY environment variable. "
+                "Set it before initializing the broker."
+            )
+
+        if not self.api_secret:
+            raise BinanceUSError(
+                "Missing BINANCE_US_API_SECRET environment variable. "
+                "Set it before initializing the broker."
+            )
+
+        # Validate API key format (Binance keys are 64-character hex strings)
+        if len(self.api_key) < 32:
+            raise BinanceUSError(
+                f"Invalid API key format: too short ({len(self.api_key)} chars, expected 64+). "
+                f"Key prefix: {self.api_key[:8]}..."
+            )
+
+        if not all(c in "0123456789ABCDEFabcdef" for c in self.api_key):
+            raise BinanceUSError(
+                "Invalid API key format: must be hexadecimal. "
+                f"Key prefix: {self.api_key[:8]}..."
+            )
+
+        # Validate API secret format
+        if len(self.api_secret) < 32:
+            raise BinanceUSError(
+                f"Invalid API secret format: too short ({len(self.api_secret)} chars, expected 64+)"
+            )
+
+        if not all(c in "0123456789ABCDEFabcdef" for c in self.api_secret):
+            raise BinanceUSError(
+                "Invalid API secret format: must be hexadecimal"
+            )
+
+        logger.info(
+            f"API credentials validated | Key: {self.api_key[:8]}...{self.api_key[-4:]} "
+            f"(length: {len(self.api_key)})"
         )
 
     def _sign(self, params: dict) -> str:
@@ -144,6 +195,81 @@ class BinanceUSSpotBroker(Broker):
             else:
                 raise BinanceUSError(f"Request failed: {e}")
 
+    def _wait_for_fill(
+        self,
+        symbol: str,
+        order_id: str,
+        timeout_seconds: float = 10.0,
+        poll_interval: float = 0.5
+    ) -> dict:
+        """
+        Wait for order to fill with configurable timeout.
+
+        Polls order status until FILLED or PARTIALLY_FILLED, or timeout is reached.
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+            order_id: Order ID to check
+            timeout_seconds: Max time to wait for fill (default 10s)
+            poll_interval: Time between status checks (default 0.5s)
+
+        Returns:
+            Order details dict from API
+
+        Raises:
+            BinanceUSError: If timeout reached or order rejected
+
+        Notes:
+            - Accepts FILLED and PARTIALLY_FILLED status
+            - Market orders typically fill within 100-500ms
+            - 10s timeout allows for volatile market conditions
+        """
+        import time
+        start_time = time.time()
+        attempts = 0
+
+        while time.time() - start_time < timeout_seconds:
+            attempts += 1
+
+            # Query order status
+            order_details = self._request(
+                "GET",
+                "/api/v3/order",
+                params={"symbol": symbol, "orderId": order_id},
+                signed=True
+            )
+
+            status = order_details.get("status")
+            executed_qty = Decimal(str(order_details.get("executedQty", 0)))
+
+            # Accept FILLED or PARTIALLY_FILLED
+            if status in ["FILLED", "PARTIALLY_FILLED"]:
+                elapsed = (time.time() - start_time) * 1000  # ms
+                logger.debug(
+                    f"Order filled: {symbol} | "
+                    f"Status: {status} | "
+                    f"Qty: {executed_qty} | "
+                    f"Latency: {elapsed:.1f}ms | "
+                    f"Attempts: {attempts}"
+                )
+                return order_details
+
+            # Reject orders that failed
+            if status in ["CANCELED", "REJECTED", "EXPIRED"]:
+                raise BinanceUSError(
+                    f"Order {order_id} failed with status: {status}"
+                )
+
+            # Wait before next poll
+            time.sleep(poll_interval)
+
+        # Timeout reached
+        raise BinanceUSError(
+            f"Order {order_id} did not fill within {timeout_seconds}s. "
+            f"Final status: {order_details.get('status')}, "
+            f"Executed qty: {executed_qty}"
+        )
+
     def buy(
         self,
         symbol: str,
@@ -189,36 +315,28 @@ class BinanceUSSpotBroker(Broker):
 
         # Get actual fill price for entry price tracking
         try:
-            # Query order details to get fill price
-            order_details = self._request(
-                "GET",
-                "/api/v3/order",
-                params={"symbol": symbol, "orderId": order_id},
-                signed=True
-            )
+            # Wait for order to fill (with timeout)
+            order_details = self._wait_for_fill(symbol, order_id, timeout_seconds=10.0)
 
-            # 🔑 FIX Issue #3: Validate order was fully filled
+            # Get executed quantity and status
             order_status = order_details.get("status")
             executed_qty = Decimal(str(order_details.get("executedQty", 0)))
 
-            if order_status != "FILLED":
-                logger.error(
-                    f"Order not fully filled: {symbol} | "
-                    f"Status: {order_status} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
-                )
-                raise BinanceUSError(
-                    f"Order {order_id} not fully filled. "
-                    f"Status: {order_status}, Executed: {executed_qty}/{qty}"
-                )
-
+            # Handle partial fills
             if executed_qty != qty:
                 logger.warning(
-                    f"Partial fill detected: {symbol} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
+                    f"Partial fill: {symbol} | "
+                    f"Requested: {qty} | Executed: {executed_qty} | "
+                    f"Status: {order_status}"
                 )
-                # Update qty to actual executed amount
+                # Accept partial fill and update qty to actual executed amount
                 qty = executed_qty
+
+            # Reject orders with zero execution
+            if executed_qty == 0:
+                raise BinanceUSError(
+                    f"Order {order_id} executed with zero quantity. Status: {order_status}"
+                )
 
             # Calculate average fill price from fills
             fills = order_details.get("fills", [])
@@ -326,36 +444,28 @@ class BinanceUSSpotBroker(Broker):
 
         # Get actual fill price for P&L calculation
         try:
-            # Query order details to get fill price
-            order_details = self._request(
-                "GET",
-                "/api/v3/order",
-                params={"symbol": symbol, "orderId": order_id},
-                signed=True
-            )
+            # Wait for order to fill (with timeout)
+            order_details = self._wait_for_fill(symbol, order_id, timeout_seconds=10.0)
 
-            # 🔑 FIX Issue #3: Validate order was fully filled
+            # Get executed quantity and status
             order_status = order_details.get("status")
             executed_qty = Decimal(str(order_details.get("executedQty", 0)))
 
-            if order_status != "FILLED":
-                logger.error(
-                    f"Order not fully filled: {symbol} | "
-                    f"Status: {order_status} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
-                )
-                raise BinanceUSError(
-                    f"Order {order_id} not fully filled. "
-                    f"Status: {order_status}, Executed: {executed_qty}/{qty}"
-                )
-
+            # Handle partial fills
             if executed_qty != qty:
                 logger.warning(
-                    f"Partial fill detected: {symbol} | "
-                    f"Requested: {qty} | Executed: {executed_qty}"
+                    f"Partial fill: {symbol} | "
+                    f"Requested: {qty} | Executed: {executed_qty} | "
+                    f"Status: {order_status}"
                 )
-                # Update qty to actual executed amount for P&L calculation
+                # Accept partial fill and update qty for P&L calculation
                 qty = executed_qty
+
+            # Reject orders with zero execution
+            if executed_qty == 0:
+                raise BinanceUSError(
+                    f"Order {order_id} executed with zero quantity. Status: {order_status}"
+                )
 
             # Calculate average fill price from fills
             fills = order_details.get("fills", [])
