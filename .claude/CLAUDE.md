@@ -4,13 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Trade Engine** (formerly MFT Bot) is a Medium-Frequency Trading system for cryptocurrency futures using Level 2 order book imbalance detection. The strategy identifies supply/demand imbalances in the order book to predict short-term price movements (5-60 second hold times).
+**Trade Engine** is a unified multi-asset signal generation platform that identifies trading opportunities across cryptocurrency futures, options, and equities using sophisticated technical analysis and order book imbalance detection.
 
-**Core Strategy**: L2 Order Book Imbalance Scalping
+**Multi-Asset Architecture**: The system operates in parallel across three asset classes with independent capital allocation:
+
+### Asset Class 1: Cryptocurrency Futures
+**Strategy**: L2 Order Book Imbalance Scalping
 - Buy signal: Bid/Ask volume ratio > 3.0x (strong buying pressure)
 - Sell signal: Bid/Ask volume ratio < 0.33x (strong selling pressure)
-- Target: $50-100/day profit on $10K capital
+- Timeframe: Sub-minute (5-60 second holds)
+- Data Source: Binance/Kraken L2 WebSocket feeds
+- Target: $50-100/day profit on allocated capital
 - Expected win rate: 52-58% (based on academic research)
+
+### Asset Class 2: Options
+**Strategy**: Multi-Factor Signal Generation
+- Technical analysis across multiple timeframes
+- Options chain analysis for high-probability setups
+- Data Source: Yahoo Finance + options data providers
+- Timeframe: Daily to weekly expiries
+
+### Asset Class 3: Equities
+**Strategy**: Multi-Factor Stock Screener
+- 7-factor screening (breakout, volume, MA, MACD, RSI, gain, market cap)
+- Identifies stocks with multiple confluent buy signals
+- Data Source: Yahoo Finance daily OHLCV
+- Timeframe: Multi-day to multi-week holds
 
 **Project Timeline**: 24 weeks (6 months) from foundation to production trading
 
@@ -58,17 +77,31 @@ Adapters for external systems and data sources.
 
 **Location**: `src/trade_engine/adapters/`, `src/trade_engine/api/`, `src/trade_engine/db/`
 
-## Supported Brokers
+## Supported Data Sources and Brokers
 
-The system supports multiple brokers to accommodate different regulatory jurisdictions:
+The system integrates with multiple data providers and execution venues across all asset classes:
 
+### Cryptocurrency Futures
 - **Binance Futures** - Primary L2 data feed (full long/short functionality)
 - **Kraken Futures** - US-accessible futures trading (recommended for US traders)
 - **Binance.us** - US-only spot trading (long-only mode, no shorting)
 
 **Note**: Spot-only mode automatically disables short signals for platforms without margin trading.
 
-See broker adapter implementations in `src/trade_engine/adapters/brokers/`
+### Options & Equities
+- **Yahoo Finance** - Free daily OHLCV data for stocks and options underlyings
+- **Options Data Providers** - (To be integrated in Phase 3+)
+  - Options chain data
+  - Greeks calculation
+  - Implied volatility
+
+### Multi-Asset Signal Generation
+The multi-factor screener can analyze:
+- Stocks (US equities via Yahoo Finance)
+- Options underlyings (identify setups for options plays)
+- Cryptocurrency (when daily technical analysis is relevant)
+
+See adapter implementations in `src/trade_engine/adapters/brokers/` and `src/trade_engine/services/data/`
 
 ## Python Environment
 
