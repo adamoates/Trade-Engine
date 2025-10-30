@@ -1,50 +1,42 @@
-# MFT Trading Bot - Phase 0 Dependencies
-# Week 1-2: Infrastructure Setup & Data Collection
+
 #
-# YAGNI Principle: Only install what we need RIGHT NOW
-# Phase 0 focuses on: VPS setup, L2 data collection, validation
-#
-# ⚠️  DO NOT add Phase 2+ dependencies yet:
-#   - NO websockets (not needed until Phase 2)
-#   - NO database libraries (not needed until Phase 2)
 #   - NO API frameworks (not needed until Phase 3)
+#   - NO database libraries (not needed until Phase 2)
 #   - NO frontend libraries (not needed until Phase 4)
-
-# Exchange connectivity
-ccxt>=4.5.0  # Use latest stable (4.2.0 never existed, currently 4.5.x)
-requests>=2.31.0  # HTTP requests for Binance API (used by broker_binance.py)
-
-# Data processing
-pandas>=2.2.0  # Updated for Python 3.13 compatibility
-numpy>=1.26.0  # Updated for Python 3.13 compatibility
-sortedcontainers>=2.4.0  # Efficient sorted data structures for L2 order book
-
-# WebSocket for real-time L2 data feeds
-websockets>=12.0  # L2 order book WebSocket streams
-
-# Multi-source data adapters (added for data quality / cross-validation)
-yfinance>=0.2.40  # Yahoo Finance data (stocks, ETFs, indices, crypto)
-# Note: CoinGecko uses requests library (already included above)
-
+#   - NO websockets (not needed until Phase 2)
+# ⚠️  DO NOT add Phase 2+ dependencies yet:
 # Configuration management
+# Data processing
+# Development tools
+# Exchange connectivity
+# Logging
+# MFT Trading Bot - Phase 0 Dependencies
+# Multi-source data adapters (added for data quality / cross-validation)
+# Note: CoinGecko uses requests library (already included above)
+# Note: No asyncio libraries needed yet - using ccxt synchronous mode for Phase 0
+# Note: No FastAPI/uvicorn - API not needed until Phase 3
+# Note: No psycopg2/SQLAlchemy - database not needed until Phase 2
+# Phase 0 focuses on: VPS setup, L2 data collection, validation
+# Type checking (optional but recommended)
+# WebSocket for real-time L2 data feeds
+# Week 1-2: Infrastructure Setup & Data Collection
+# YAGNI Principle: Only install what we need RIGHT NOW
+black>=24.0.0
+ccxt>=4.5.0  # Use latest stable (4.2.0 never existed, currently 4.5.x)
+loguru==0.7.2
+mypy>=1.8.0
+numpy>=1.26.0  # Updated for Python 3.13 compatibility
+pandas>=2.2.0  # Updated for Python 3.13 compatibility
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+pytest-mock>=3.14.0  # Test mocking utilities
+pytest-xdist>=3.5.0  # Parallel test execution (3-5x speedup)
+pytest>=8.0.0  # Updated for Python 3.13
 python-dotenv==1.0.0
 pyyaml>=6.0  # YAML config file parsing (used by live trading configs)
-
-# Logging
-loguru==0.7.2
-
-# Development tools
-pytest>=8.0.0  # Updated for Python 3.13
-pytest-cov>=4.1.0
-pytest-asyncio>=0.23.0
-pytest-xdist>=3.5.0  # Parallel test execution (3-5x speedup)
-pytest-mock>=3.14.0  # Test mocking utilities
-black>=24.0.0
+ratelimit>=2.2.1
+requests>=2.31.0  # HTTP requests for Binance API (used by broker_binance.py)
 ruff>=0.3.0
-
-# Type checking (optional but recommended)
-mypy>=1.8.0
-
-# Note: No asyncio libraries needed yet - using ccxt synchronous mode for Phase 0
-# Note: No psycopg2/SQLAlchemy - database not needed until Phase 2
-# Note: No FastAPI/uvicorn - API not needed until Phase 3
+sortedcontainers>=2.4.0  # Efficient sorted data structures for L2 order book
+websockets>=12.0  # L2 order book WebSocket streams
+yfinance>=0.2.40  # Yahoo Finance data (stocks, ETFs, indices, crypto)

@@ -17,6 +17,7 @@ from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from loguru import logger
+from ratelimit import limits, sleep_and_retry
 
 from trade_engine.services.data.source_yahoo import YahooFinanceSource
 from trade_engine.services.data.types import OHLCV
@@ -332,9 +333,13 @@ class MultiFactorScreener:
             composite_score=composite_score
         )
 
+    @sleep_and_retry
+    @limits(calls=2000, period=3600)  # 2000 calls per hour (yfinance guidelines)
     def _fetch_market_cap(self, symbol: str) -> Optional[Decimal]:
         """
         Fetch market capitalization for symbol.
+
+        Rate limited to 2000 calls/hour per yfinance API guidelines.
 
         Args:
             symbol: Stock ticker
@@ -355,6 +360,11 @@ class MultiFactorScreener:
                 )
                 return None
 
+            logger.debug(
+                "Market cap fetched",
+                symbol=symbol,
+                market_cap=str(market_cap)
+            )
             return Decimal(str(market_cap))
 
         except Exception as e:
