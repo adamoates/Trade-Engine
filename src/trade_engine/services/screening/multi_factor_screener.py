@@ -26,6 +26,13 @@ from trade_engine.domain.strategies.alpha_macd import MACDAlpha
 from trade_engine.domain.strategies.alpha_rsi_divergence import RSIDivergenceAlpha
 
 
+# MACD Calculation Constants
+MIN_CANDLES_FOR_MACD = 35  # 26 for slow EMA + 9 for signal line
+MACD_FAST_PERIOD = 12
+MACD_SLOW_PERIOD = 26
+MACD_SIGNAL_PERIOD = 9
+
+
 @dataclass
 class ScreenerMatch:
     """
@@ -524,36 +531,48 @@ class MultiFactorScreener:
         Returns:
             (macd_line, signal_line) tuple
         """
-        if len(candles) < 35:  # Need 26 for MACD + 9 for signal
+        if len(candles) < MIN_CANDLES_FOR_MACD:
             return (Decimal("0"), Decimal("0"))
 
         # Extract prices once
         prices = [Decimal(str(c.close)) for c in candles]
 
         # Calculate EMA(12) and EMA(26) series incrementally - O(n)
-        ema_12_series = self._calculate_ema_series(prices, 12)
-        ema_26_series = self._calculate_ema_series(prices, 26)
+        ema_12_series = self._calculate_ema_series(prices, MACD_FAST_PERIOD)
+        ema_26_series = self._calculate_ema_series(prices, MACD_SLOW_PERIOD)
 
         # Calculate MACD series starting from bar 26 (when EMA(26) first available)
-        # EMA(12) has 12-1=11 warmup bars, EMA(26) has 26-1=25 warmup bars
-        # So we can start calculating MACD from index 25 (bar 26)
+        # EMA alignment explanation:
+        # - ema_12_series[0] corresponds to price index 11 (prices[0:12])
+        # - ema_26_series[0] corresponds to price index 25 (prices[0:26])
+        # - When i=0, we need ema_12_series at same price index 25
+        # - Therefore: ema_12_idx = 0 + (26-12) = 14
+        # - ema_12_series[14] = prices[0:26] ✅ aligned with ema_26_series[0]
         macd_values = []
+        alignment_offset = MACD_SLOW_PERIOD - MACD_FAST_PERIOD
         for i in range(len(ema_26_series)):
-            # Align indices: EMA(12) starts at index 11, EMA(26) starts at index 25
-            ema_12_idx = i + (26 - 12)  # Offset to align with EMA(26)
+            ema_12_idx = i + alignment_offset
             if ema_12_idx < len(ema_12_series):
                 macd = ema_12_series[ema_12_idx] - ema_26_series[i]
                 macd_values.append(macd)
 
+        # Edge case: This should never happen if len(candles) >= MIN_CANDLES_FOR_MACD,
+        # but guard defensively. Would only occur if ema_26_series was unexpectedly empty.
         if not macd_values:
+            logger.warning(
+                "MACD calculation produced no values",
+                candles_len=len(candles),
+                ema_12_len=len(ema_12_series),
+                ema_26_len=len(ema_26_series)
+            )
             return (Decimal("0"), Decimal("0"))
 
         # Current MACD line
         macd_line = macd_values[-1]
 
         # Signal line = EMA(9) of MACD values - O(n)
-        if len(macd_values) >= 9:
-            signal_series = self._calculate_ema_series(macd_values, 9)
+        if len(macd_values) >= MACD_SIGNAL_PERIOD:
+            signal_series = self._calculate_ema_series(macd_values, MACD_SIGNAL_PERIOD)
             signal_line = signal_series[-1] if signal_series else macd_line
         else:
             signal_line = macd_line
