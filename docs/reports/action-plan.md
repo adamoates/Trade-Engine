@@ -106,7 +106,7 @@ This document tracks improvements based on comprehensive code review feedback.
       # ... 12 total limits defined
   ```
 - ✅ Validation functions for all limits
-- ✅ 89 comprehensive tests (100% coverage)
+- ✅ 60 comprehensive tests (100% coverage, 480 lines)
 - ✅ CI check verifies risk rules use correct types (Decimal/int)
 - ✅ Documentation in docstrings
 
