@@ -28,9 +28,15 @@ else
     echo ""
 fi
 
-# Pattern 2: Type hints with float for financial fields
+# Pattern 2: Type hints with float for financial fields (improved to catch more cases)
 echo "2️⃣  Checking for 'price: float' type hints..."
-PATTERN2=$(grep -rn ":\s*float" $DIRS | grep -E "(price|qty|quantity|amount|pnl|size|commission|fee)" 2>/dev/null || true)
+# Enhanced regex to catch:
+# - "price: float" (with space)
+# - "price:float" (no space)
+# - "price: Optional[float]"
+# - "def foo(price: float)"
+# - "-> float" in function signatures with financial variable names
+PATTERN2=$(grep -rE ":\s*float|:float|:\s*Optional\[float\]|:\s*float\s*\)" $DIRS | grep -iE "(price|qty|quantity|amount|pnl|size|commission|fee|balance|value)" 2>/dev/null || true)
 if [ -n "$PATTERN2" ]; then
     echo "⚠️  FOUND:"
     echo "$PATTERN2"
@@ -56,12 +62,38 @@ else
     echo ""
 fi
 
-# Pattern 4: Division that might lose precision
-echo "4️⃣  Checking for division in financial code (potential precision loss)..."
-PATTERN4=$(grep -rn "/ [0-9]" $DIRS | grep -E "(price|qty|quantity|amount|pnl|size)" | grep -v "Decimal" | head -10 2>/dev/null || true)
+# Pattern 4: Function signatures with float return types
+echo "4️⃣  Checking for '->\s*float' return types in financial functions..."
+PATTERN4=$(grep -rE "def\s+\w+.*->\s*float" $DIRS | grep -iE "(price|qty|quantity|amount|pnl|balance|value|calculate|compute)" 2>/dev/null || true)
 if [ -n "$PATTERN4" ]; then
-    echo "⚠️  FOUND (first 10 matches - may be false positives):"
+    echo "⚠️  FOUND:"
     echo "$PATTERN4"
+    echo ""
+    echo "💡 Tip: Financial calculation functions should return Decimal, not float"
+    echo ""
+    FOUND_ISSUES=$((FOUND_ISSUES + 1))
+else
+    echo "✅ No financial functions returning float"
+    echo ""
+fi
+
+# Pattern 5: Generic type hints with float (dict[str, float], List[float], etc.)
+echo "5️⃣  Checking for generic type hints containing float..."
+PATTERN5=$(grep -rE "\[.*float.*\]" $DIRS | grep -iE "(price|qty|quantity|amount|pnl|balance|value)" | grep -v "Decimal" | head -10 2>/dev/null || true)
+if [ -n "$PATTERN5" ]; then
+    echo "⚠️  FOUND (first 10 matches):"
+    echo "$PATTERN5"
+    echo ""
+    echo "💡 Tip: Use dict[str, Decimal] instead of dict[str, float]"
+    echo ""
+fi
+
+# Pattern 6: Division that might lose precision
+echo "6️⃣  Checking for division in financial code (potential precision loss)..."
+PATTERN6=$(grep -rn "/ [0-9]" $DIRS | grep -E "(price|qty|quantity|amount|pnl|size)" | grep -v "Decimal" | head -10 2>/dev/null || true)
+if [ -n "$PATTERN6" ]; then
+    echo "⚠️  FOUND (first 10 matches - may be false positives):"
+    echo "$PATTERN6"
     echo ""
     echo "💡 Tip: Ensure both operands are Decimal for division"
     echo ""
@@ -73,12 +105,12 @@ echo "✅ POSITIVE CHECKS - Correct Decimal Usage"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
-echo "5️⃣  Checking for correct Decimal usage..."
+echo "7️⃣  Checking for correct Decimal usage..."
 DECIMAL_USAGE=$(grep -rn "from decimal import Decimal" $DIRS 2>/dev/null | wc -l || echo "0")
 echo "✅ Files importing Decimal: $DECIMAL_USAGE"
 echo ""
 
-echo "6️⃣  Checking for Decimal type hints..."
+echo "8️⃣  Checking for Decimal type hints..."
 DECIMAL_HINTS=$(grep -rn ":\s*Decimal" $DIRS 2>/dev/null | wc -l || echo "0")
 echo "✅ Decimal type hints found: $DECIMAL_HINTS"
 echo ""
