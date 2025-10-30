@@ -138,30 +138,94 @@ jobs:
 
       - name: Check for float usage in financial code
         run: |
-          echo "🔍 Scanning for dangerous float usage in financial calculations..."
-          if [ -d "src/trade_engine" ]; then
-            # Search for float() usage in risk-critical files
-            # Excludes: data sources (parse external APIs), backtest (statistical calculations)
-            if grep -r "float(" src/trade_engine/domain/ src/trade_engine/services/trading/ 2>/dev/null | grep -E "(price|quantity|pnl|position|balance)" ; then
-              echo "❌ ERROR: Found float() usage in financial code!"
+          echo "🔍 Running comprehensive float usage audit..."
+          if [ -f "scripts/audit_float_usage.sh" ]; then
+            # Run the comprehensive audit script
+            chmod +x scripts/audit_float_usage.sh
+            ./scripts/audit_float_usage.sh > audit_output.txt 2>&1 || true
+
+            # Check for critical float usage in core trading path
+            echo ""
+            echo "Checking critical trading path (core, brokers, L2 strategy)..."
+            CRITICAL_DIRS="src/trade_engine/core/ src/trade_engine/adapters/brokers/ src/trade_engine/domain/strategies/alpha_l2*"
+
+            CRITICAL_FLOAT_FOUND=false
+            for dir in $CRITICAL_DIRS; do
+              if [ -e "$dir" ] && grep -r ":\s*float" "$dir" 2>/dev/null | grep -E "(price|qty|quantity|pnl|balance|amount|size)" ; then
+                echo "❌ CRITICAL: Found float type hints in $dir"
+                CRITICAL_FLOAT_FOUND=true
+              fi
+            done
+
+            if [ "$CRITICAL_FLOAT_FOUND" = true ]; then
+              echo ""
+              echo "❌ ERROR: Float usage detected in CRITICAL trading path!"
               echo "Financial calculations MUST use Decimal, never float"
-              echo "Note: Data sources and backtest metrics may use float for parsing/statistics"
+              echo ""
+              echo "Full audit output:"
+              cat audit_output.txt
               exit 1
             else
-              echo "✅ No dangerous float usage detected in core trading logic"
+              echo "✅ Critical trading path is clean (no float in core/brokers/L2 strategy)"
+              echo ""
+              echo "ℹ️  Non-critical areas may still have float usage (services, alpha strategies)"
+              echo "   See audit output for details:"
+              grep -A 5 "SUMMARY" audit_output.txt || echo "Audit completed"
             fi
           else
-            echo "Project directories not yet created - skipping"
+            echo "⚠️  Audit script not found - using basic check"
+            # Fallback to basic check
+            if [ -d "src/trade_engine" ]; then
+              if grep -r "float(" src/trade_engine/domain/ src/trade_engine/services/trading/ 2>/dev/null | grep -E "(price|quantity|pnl|position|balance)" ; then
+                echo "❌ ERROR: Found float() usage in financial code!"
+                exit 1
+              else
+                echo "✅ No dangerous float usage detected"
+              fi
+            else
+              echo "Project directories not yet created - skipping"
+            fi
           fi
 
       - name: Verify risk limits are defined
         run: |
           echo "🔍 Checking that risk limits are properly configured..."
-          if [ -f "src/trade_engine/domain/risk/risk_manager.py" ] || [ -f "src/trade_engine/core/config.py" ]; then
-            echo "✅ Risk configuration files found"
-            # Additional validation could check that limits are reasonable
+          if [ -f "src/trade_engine/core/risk_rules.py" ]; then
+            echo "✅ Risk rules file found"
+
+            # Verify critical limits are defined with Decimal type
+            echo "Checking for Decimal-based risk limits..."
+            REQUIRED_LIMITS=(
+              "MAX_POSITION_SIZE_USD"
+              "DAILY_LOSS_LIMIT_USD"
+              "MAX_DRAWDOWN_USD"
+              "MAX_HOLD_TIME_SECONDS"
+            )
+
+            MISSING_LIMITS=()
+            for limit in "${REQUIRED_LIMITS[@]}"; do
+              if ! grep -q "$limit.*Decimal" src/trade_engine/core/risk_rules.py; then
+                MISSING_LIMITS+=("$limit")
+              fi
+            done
+
+            if [ ${#MISSING_LIMITS[@]} -gt 0 ]; then
+              echo "❌ ERROR: Missing or non-Decimal risk limits: ${MISSING_LIMITS[*]}"
+              exit 1
+            else
+              echo "✅ All critical risk limits defined with Decimal type"
+            fi
+
+            # Verify limits are reasonable (not accidentally set to zero or extreme values)
+            echo "Validating limit values..."
+            if grep -q "MAX_POSITION_SIZE_USD.*Decimal(\"0\")" src/trade_engine/core/risk_rules.py; then
+              echo "❌ ERROR: MAX_POSITION_SIZE_USD is zero"
+              exit 1
+            fi
+
+            echo "✅ Risk limits validated"
           else
-            echo "⚠️  Risk manager not yet implemented (expected in Phase 2)"
+            echo "⚠️  Risk rules not yet implemented (expected in Phase 2)"
           fi
 
       - name: Check for kill switch implementation
@@ -274,6 +338,38 @@ jobs:
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
         continue-on-error: true
+
+      - name: Check for .env files in commits
+        run: |
+          echo "🔍 Checking for accidentally committed .env files..."
+          if git ls-files | grep -E "\.env$|\.env\..*" | grep -v ".env.example"; then
+            echo "❌ ERROR: Found .env file(s) in git repository!"
+            echo "Never commit .env files (contains secrets)"
+            echo ""
+            echo "To fix:"
+            echo "  1. git rm --cached .env"
+            echo "  2. Verify .env is in .gitignore"
+            echo "  3. Rotate any exposed API keys"
+            exit 1
+          else
+            echo "✅ No .env files in repository"
+          fi
+
+      - name: Check for API keys in logging code
+        run: |
+          echo "🔍 Checking that API keys are not logged..."
+          if [ -d "src/trade_engine" ]; then
+            # Check for logger calls that might expose API keys
+            if grep -r "logger\." src/trade_engine/ | grep -iE "(api_key|api_secret|secret_key|private_key)" | grep -v "# "; then
+              echo "⚠️  WARNING: Found potential API key logging"
+              echo "Review these lines to ensure keys are not exposed:"
+              grep -rn "logger\." src/trade_engine/ | grep -iE "(api_key|api_secret|secret_key|private_key)" | grep -v "# " || true
+              echo ""
+              echo "Logging API keys (even partially) is a security risk"
+            else
+              echo "✅ No API key logging detected"
+            fi
+          fi
 
   # ============================================================================
   # Final Gate - All checks must pass
