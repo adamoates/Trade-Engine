@@ -547,7 +547,7 @@ class TestCalculateCompositeScore:
 
         # result2 should be ~2x result1 (gain weight is 15%, so 10% gain = 7.5->7, 20% gain = 15)
         # Due to int() truncation, 7.5 becomes 7, so 7*2 = 14, but 15/7 = 2.14
-        assert result2 >= result1 * 2 - 1, f"Expected ~{result1 * 2}, got {result2}"
+        assert result2 >= result1 * 2 - 1, f"Expected >={result1 * 2 - 1}, got {result2}"
         assert result2 > result1, "20% gain should score higher than 10% gain"
 
     def test_composite_score_range(self):

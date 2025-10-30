@@ -263,10 +263,19 @@ class MultiFactorScreener:
         # Filter 3: Volume surge
         current_volume = Decimal(str(current.volume))
         avg_volume = self._calculate_avg_volume(candles[-self.lookback_days:])
-        volume_ratio = current_volume / avg_volume if avg_volume > 0 else Decimal("0")
 
-        if volume_ratio < min_volume_ratio:
-            return None
+        # Handle zero average volume (data gaps, newly listed stocks, etc.)
+        if avg_volume == 0:
+            logger.debug(
+                "Skipping volume filter - no historical volume data",
+                symbol=symbol,
+                current_volume=current_volume
+            )
+            volume_ratio = Decimal("0")  # Will be excluded from signal matching
+        else:
+            volume_ratio = current_volume / avg_volume
+            if volume_ratio < min_volume_ratio:
+                return None
 
         # Filter 4: Breakout detection (20-day high)
         breakout_score = self._calculate_breakout_score(candles, current_price)
@@ -446,6 +455,40 @@ class MultiFactorScreener:
 
         return current_bullish and previous_bearish
 
+    def _calculate_ema_series(
+        self,
+        prices: List[Decimal],
+        period: int
+    ) -> List[Decimal]:
+        """
+        Calculate EMA for each position in the price series.
+
+        This is O(n) instead of O(n²) by calculating incrementally.
+
+        Args:
+            prices: List of prices (must be >= period length)
+            period: EMA period
+
+        Returns:
+            List of EMA values (one per price, starting at index period-1)
+        """
+        if len(prices) < period:
+            return []
+
+        multiplier = Decimal("2") / Decimal(str(period + 1))
+        ema_series = []
+
+        # Start with SMA for first period
+        ema = sum(prices[:period]) / Decimal(str(period))
+        ema_series.append(ema)
+
+        # Calculate EMA for each subsequent price
+        for price in prices[period:]:
+            ema = (price - ema) * multiplier + ema
+            ema_series.append(ema)
+
+        return ema_series
+
     def _calculate_macd_with_signal(
         self,
         candles: List[OHLCV]
@@ -456,45 +499,42 @@ class MultiFactorScreener:
         MACD = EMA(12) - EMA(26)
         Signal = EMA(9) of MACD values
 
+        Optimized to O(n) complexity using incremental EMA calculation.
+
         Returns:
             (macd_line, signal_line) tuple
         """
         if len(candles) < 35:  # Need 26 for MACD + 9 for signal
             return (Decimal("0"), Decimal("0"))
 
-        # Calculate MACD values for the last 35 periods to get signal line
+        # Extract prices once
+        prices = [Decimal(str(c.close)) for c in candles]
+
+        # Calculate EMA(12) and EMA(26) series incrementally - O(n)
+        ema_12_series = self._calculate_ema_series(prices, 12)
+        ema_26_series = self._calculate_ema_series(prices, 26)
+
+        # Calculate MACD series starting from bar 26 (when EMA(26) first available)
+        # EMA(12) has 12-1=11 warmup bars, EMA(26) has 26-1=25 warmup bars
+        # So we can start calculating MACD from index 25 (bar 26)
         macd_values = []
-        for i in range(26, len(candles) + 1):
-            subset = candles[:i]
-            ema_12 = self._calculate_ema(subset, 12)
-            ema_26 = self._calculate_ema(subset, 26)
-            macd_values.append(ema_12 - ema_26)
+        for i in range(len(ema_26_series)):
+            # Align indices: EMA(12) starts at index 11, EMA(26) starts at index 25
+            ema_12_idx = i + (26 - 12)  # Offset to align with EMA(26)
+            if ema_12_idx < len(ema_12_series):
+                macd = ema_12_series[ema_12_idx] - ema_26_series[i]
+                macd_values.append(macd)
+
+        if not macd_values:
+            return (Decimal("0"), Decimal("0"))
 
         # Current MACD line
         macd_line = macd_values[-1]
 
-        # Signal line = EMA(9) of MACD values
+        # Signal line = EMA(9) of MACD values - O(n)
         if len(macd_values) >= 9:
-            # Convert to "candles" format for EMA calculation
-            # We'll use a simple average for the first 9, then EMA
-            macd_prices = [Decimal("0")] * len(macd_values)
-            for i, val in enumerate(macd_values):
-                macd_prices[i] = val
-
-            # Calculate EMA of MACD values
-            multiplier = Decimal("2") / Decimal("10")  # 2/(9+1)
-
-            # Start with SMA of first 9 values
-            if len(macd_values) >= 9:
-                ema = sum(macd_values[:9]) / Decimal("9")
-
-                # Apply EMA to remaining values
-                for val in macd_values[9:]:
-                    ema = (val - ema) * multiplier + ema
-
-                signal_line = ema
-            else:
-                signal_line = sum(macd_values) / Decimal(str(len(macd_values)))
+            signal_series = self._calculate_ema_series(macd_values, 9)
+            signal_line = signal_series[-1] if signal_series else macd_line
         else:
             signal_line = macd_line
 
