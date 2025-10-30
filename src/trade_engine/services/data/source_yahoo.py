@@ -14,6 +14,7 @@ Free, no API key required.
 from datetime import datetime, timezone
 from typing import List, Optional
 from loguru import logger
+from ratelimit import limits, sleep_and_retry
 
 try:
     import yfinance as yf
@@ -71,6 +72,8 @@ class YahooFinanceSource(DataSource):
             AssetType.FOREX
         ]
 
+    @sleep_and_retry
+    @limits(calls=2000, period=3600)  # 2000 calls per hour (yfinance guidelines)
     def fetch_ohlcv(
         self,
         symbol: str,
@@ -81,6 +84,8 @@ class YahooFinanceSource(DataSource):
     ) -> List[OHLCV]:
         """
         Fetch OHLCV from Yahoo Finance.
+
+        Rate limited to 2000 calls/hour per yfinance API guidelines.
 
         Args:
             symbol: Ticker symbol (e.g., "AAPL", "BTC-USD", "^GSPC")

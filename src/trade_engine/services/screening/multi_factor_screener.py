@@ -17,6 +17,7 @@ from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from loguru import logger
+from ratelimit import limits, sleep_and_retry
 
 from trade_engine.services.data.source_yahoo import YahooFinanceSource
 from trade_engine.services.data.types import OHLCV
@@ -332,9 +333,13 @@ class MultiFactorScreener:
             composite_score=composite_score
         )
 
+    @sleep_and_retry
+    @limits(calls=2000, period=3600)  # 2000 calls per hour (yfinance guidelines)
     def _fetch_market_cap(self, symbol: str) -> Optional[Decimal]:
         """
         Fetch market capitalization for symbol.
+
+        Rate limited to 2000 calls/hour per yfinance API guidelines.
 
         Args:
             symbol: Stock ticker
@@ -355,6 +360,11 @@ class MultiFactorScreener:
                 )
                 return None
 
+            logger.debug(
+                "Market cap fetched",
+                symbol=symbol,
+                market_cap=str(market_cap)
+            )
             return Decimal(str(market_cap))
 
         except Exception as e:
@@ -414,29 +424,81 @@ class MultiFactorScreener:
         """
         Check if MACD crossed above signal line recently.
 
-        Returns True if crossed within last 2 bars.
+        Proper implementation: Detects actual crossover from below to above.
+        Previous: MACD ≤ signal
+        Current: MACD > signal
+
+        Returns True if crossed within last bar.
         """
-        if len(candles) < 35:  # Need enough for MACD calculation
+        if len(candles) < 35:  # Need 26 for slow EMA + 9 for signal
             return False
 
-        # Calculate MACD for last 3 bars
-        recent = candles[-35:]
+        # Calculate current MACD and signal
+        current_macd, current_signal = self._calculate_macd_with_signal(candles)
 
-        # EMA 12, 26, signal 9
-        ema_12 = self._calculate_ema(recent, 12)
-        ema_26 = self._calculate_ema(recent, 26)
-        macd_line = ema_12 - ema_26
+        # Calculate previous MACD and signal
+        prev_macd, prev_signal = self._calculate_macd_with_signal(candles[:-1])
 
-        # For signal line, we'd need full MACD history
-        # Simplified: check if MACD is positive and rising
-        if len(recent) >= 2:
-            prev_ema_12 = self._calculate_ema(recent[:-1], 12)
-            prev_ema_26 = self._calculate_ema(recent[:-1], 26)
-            prev_macd = prev_ema_12 - prev_ema_26
+        # Crossover detection:
+        # Was below or equal, now above
+        current_bullish = current_macd > current_signal
+        previous_bearish = prev_macd <= prev_signal
 
-            return macd_line > 0 and macd_line > prev_macd
+        return current_bullish and previous_bearish
 
-        return macd_line > 0
+    def _calculate_macd_with_signal(
+        self,
+        candles: List[OHLCV]
+    ) -> Tuple[Decimal, Decimal]:
+        """
+        Calculate MACD line and signal line.
+
+        MACD = EMA(12) - EMA(26)
+        Signal = EMA(9) of MACD values
+
+        Returns:
+            (macd_line, signal_line) tuple
+        """
+        if len(candles) < 35:  # Need 26 for MACD + 9 for signal
+            return (Decimal("0"), Decimal("0"))
+
+        # Calculate MACD values for the last 35 periods to get signal line
+        macd_values = []
+        for i in range(26, len(candles) + 1):
+            subset = candles[:i]
+            ema_12 = self._calculate_ema(subset, 12)
+            ema_26 = self._calculate_ema(subset, 26)
+            macd_values.append(ema_12 - ema_26)
+
+        # Current MACD line
+        macd_line = macd_values[-1]
+
+        # Signal line = EMA(9) of MACD values
+        if len(macd_values) >= 9:
+            # Convert to "candles" format for EMA calculation
+            # We'll use a simple average for the first 9, then EMA
+            macd_prices = [Decimal("0")] * len(macd_values)
+            for i, val in enumerate(macd_values):
+                macd_prices[i] = val
+
+            # Calculate EMA of MACD values
+            multiplier = Decimal("2") / Decimal("10")  # 2/(9+1)
+
+            # Start with SMA of first 9 values
+            if len(macd_values) >= 9:
+                ema = sum(macd_values[:9]) / Decimal("9")
+
+                # Apply EMA to remaining values
+                for val in macd_values[9:]:
+                    ema = (val - ema) * multiplier + ema
+
+                signal_line = ema
+            else:
+                signal_line = sum(macd_values) / Decimal(str(len(macd_values)))
+        else:
+            signal_line = macd_line
+
+        return (macd_line, signal_line)
 
     def _calculate_ema(self, candles: List[OHLCV], period: int) -> Decimal:
         """Calculate Exponential Moving Average."""
