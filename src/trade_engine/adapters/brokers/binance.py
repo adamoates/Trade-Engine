@@ -144,12 +144,17 @@ class BinanceFuturesBroker(Broker):
 
     # ========== Broker Interface Implementation ==========
 
-    def buy(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def buy(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Place buy order (long entry or short close).
 
         Uses MARKET order for immediate execution.
         If SL/TP provided, places them as separate stop orders.
+
+        Args:
+            qty: Quantity (Decimal for precision)
+            sl: Stop loss price (Decimal)
+            tp: Take profit price (Decimal)
 
         Returns:
             order_id: Binance order ID (as string)
@@ -159,7 +164,7 @@ class BinanceFuturesBroker(Broker):
             "symbol": symbol,
             "side": "BUY",
             "type": "MARKET",
-            "quantity": qty
+            "quantity": str(qty)  # Convert Decimal to string for API
         }
 
         result = self._request("POST", "/fapi/v1/order", signed=True, **params)
@@ -172,17 +177,25 @@ class BinanceFuturesBroker(Broker):
 
         return order_id
 
-    def sell(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def sell(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Place sell order (short entry or long close).
 
         Uses MARKET order for immediate execution.
+
+        Args:
+            qty: Quantity (Decimal for precision)
+            sl: Stop loss price (Decimal)
+            tp: Take profit price (Decimal)
+
+        Returns:
+            order_id: Binance order ID (as string)
         """
         params = {
             "symbol": symbol,
             "side": "SELL",
             "type": "MARKET",
-            "quantity": qty
+            "quantity": str(qty)  # Convert Decimal to string for API
         }
 
         result = self._request("POST", "/fapi/v1/order", signed=True, **params)
@@ -249,33 +262,33 @@ class BinanceFuturesBroker(Broker):
             else:
                 pnl_pct = Decimal("0.0")
 
-            # Convert to float for Position (core types will be migrated to Decimal in future PR)
+            # Position now uses Decimal (updated core types)
             positions[symbol] = Position(
                 symbol=symbol,
                 side=side,
-                qty=float(qty),
-                entry_price=float(entry_price),
-                current_price=float(mark_price),
-                pnl=float(unrealized_pnl),
-                pnl_pct=float(pnl_pct)
+                qty=qty,
+                entry_price=entry_price,
+                current_price=mark_price,
+                pnl=unrealized_pnl,
+                pnl_pct=pnl_pct
             )
 
         return positions
 
-    def balance(self) -> float:
+    def balance(self) -> Decimal:
         """
         Get available USDT balance.
 
         Returns:
-            Available balance (USDT)
+            Available balance (USDT) as Decimal for precision
         """
         result = self._request("GET", "/fapi/v2/balance", signed=True)
 
         for asset in result:
             if asset["asset"] == "USDT":
-                return float(asset["availableBalance"])
+                return Decimal(str(asset["availableBalance"]))
 
-        return 0.0
+        return Decimal("0.0")
 
     # ========== Helper Methods ==========
 
