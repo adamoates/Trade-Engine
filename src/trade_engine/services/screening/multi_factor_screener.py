@@ -453,22 +453,50 @@ class MultiFactorScreener:
         """
         Calculate MACD line and signal line.
 
+        MACD = EMA(12) - EMA(26)
+        Signal = EMA(9) of MACD values
+
         Returns:
             (macd_line, signal_line) tuple
         """
-        if len(candles) < 26:
+        if len(candles) < 35:  # Need 26 for MACD + 9 for signal
             return (Decimal("0"), Decimal("0"))
 
-        # MACD line = EMA(12) - EMA(26)
-        ema_12 = self._calculate_ema(candles, 12)
-        ema_26 = self._calculate_ema(candles, 26)
-        macd_line = ema_12 - ema_26
+        # Calculate MACD values for the last 35 periods to get signal line
+        macd_values = []
+        for i in range(26, len(candles) + 1):
+            subset = candles[:i]
+            ema_12 = self._calculate_ema(subset, 12)
+            ema_26 = self._calculate_ema(subset, 26)
+            macd_values.append(ema_12 - ema_26)
 
-        # Signal line = EMA(9) of MACD line
-        # For proper signal line, need to calculate MACD for each period
-        # Simplified: Use the current MACD as approximation
-        # TODO: Implement full MACD history for accurate signal line
-        signal_line = macd_line * Decimal("0.9")  # Approximation
+        # Current MACD line
+        macd_line = macd_values[-1]
+
+        # Signal line = EMA(9) of MACD values
+        if len(macd_values) >= 9:
+            # Convert to "candles" format for EMA calculation
+            # We'll use a simple average for the first 9, then EMA
+            macd_prices = [Decimal("0")] * len(macd_values)
+            for i, val in enumerate(macd_values):
+                macd_prices[i] = val
+
+            # Calculate EMA of MACD values
+            multiplier = Decimal("2") / Decimal("10")  # 2/(9+1)
+
+            # Start with SMA of first 9 values
+            if len(macd_values) >= 9:
+                ema = sum(macd_values[:9]) / Decimal("9")
+
+                # Apply EMA to remaining values
+                for val in macd_values[9:]:
+                    ema = (val - ema) * multiplier + ema
+
+                signal_line = ema
+            else:
+                signal_line = sum(macd_values) / Decimal(str(len(macd_values)))
+        else:
+            signal_line = macd_line
 
         return (macd_line, signal_line)
 
