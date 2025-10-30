@@ -210,6 +210,17 @@ class MultiFactorScreener:
         Returns:
             ScreenerMatch if passes all filters, None otherwise
         """
+        # Filter 0: Market cap (fetch early to avoid wasting time on penny stocks)
+        market_cap = self._fetch_market_cap(symbol)
+        if market_cap is None or market_cap < self.min_market_cap:
+            logger.debug(
+                "Market cap too low or unavailable",
+                symbol=symbol,
+                market_cap=str(market_cap) if market_cap else "N/A",
+                min_required=str(self.min_market_cap)
+            )
+            return None
+
         # Fetch historical data (need enough for 200-day MA)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=300)  # Extra buffer for MAs
@@ -282,7 +293,7 @@ class MultiFactorScreener:
             macd_bullish,                            # MACD crossover
             rsi_valid,                               # RSI in range
             gain_percent >= min_gain_percent,       # Price gain
-            current_price >= self.min_price         # Min price
+            market_cap >= self.min_market_cap       # Market cap (already checked above)
         ]
 
         signals_matched = sum(signals)
@@ -320,6 +331,39 @@ class MultiFactorScreener:
             signals_matched=signals_matched,
             composite_score=composite_score
         )
+
+    def _fetch_market_cap(self, symbol: str) -> Optional[Decimal]:
+        """
+        Fetch market capitalization for symbol.
+
+        Args:
+            symbol: Stock ticker
+
+        Returns:
+            Market cap in dollars, or None if unavailable
+        """
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+
+            market_cap = info.get('marketCap')
+            if market_cap is None:
+                logger.debug(
+                    "Market cap not available",
+                    symbol=symbol
+                )
+                return None
+
+            return Decimal(str(market_cap))
+
+        except Exception as e:
+            logger.warning(
+                "Failed to fetch market cap",
+                symbol=symbol,
+                error=str(e)
+            )
+            return None
 
     def _calculate_avg_volume(self, candles: List[OHLCV]) -> Decimal:
         """Calculate average volume over candles."""

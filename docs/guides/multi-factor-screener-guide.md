@@ -12,7 +12,7 @@ The Multi-Factor Screener identifies stocks that match **7 key buy signals**:
 4. ✅ **MACD Crossover** - MACD line crossed above signal line
 5. ✅ **RSI Momentum** - RSI between 40-70 (rising trend)
 6. ✅ **Price Gain** - 8%+ gain today
-7. ✅ **Minimum Price** - Above $10 (filters penny stocks)
+7. ✅ **Market Cap** - Above $500M minimum (filters micro-cap stocks)
 
 ## Quick Start
 
@@ -52,7 +52,7 @@ For each stock, the screener calculates:
 | **MACD Bullish** | MACD crossed above signal | Boolean (True/False) |
 | **RSI Value** | 14-period RSI | 40 ≤ RSI ≤ 70 |
 | **Gain %** | (Close - Prev Close) / Prev Close × 100 | Gain ≥ 8% |
-| **Price Filter** | Current price | Price ≥ $10 |
+| **Market Cap** | Company market capitalization | Market Cap ≥ $500M |
 
 ### 3. Scoring System
 
