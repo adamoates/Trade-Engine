@@ -37,12 +37,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from loguru import logger
 from trade_engine.adapters.feeds.binance_l2 import BinanceFuturesL2Feed, OrderBook
 from trade_engine.adapters.brokers.binance import BinanceFuturesBroker
 from trade_engine.domain.strategies.alpha_l2_imbalance import L2ImbalanceStrategy, L2StrategyConfig
 from trade_engine.core.risk_manager import RiskManager
 from trade_engine.core.types import Signal
+from trade_engine.core.logging_config import configure_logging, get_logger
+
+logger = get_logger(__name__)
 
 
 class L2IntegrationDemo:
@@ -377,12 +379,12 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Configure logging
-    logger.remove()
-    logger.add(
-        sys.stderr,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>",
-        level="INFO"
+    # Initialize structured logging
+    configure_logging(
+        level="INFO",
+        enable_console=True,
+        enable_file=True,  # Enable file logging for trading demos
+        serialize=False  # Human-readable output
     )
 
     asyncio.run(main())

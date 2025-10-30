@@ -24,19 +24,21 @@ from decimal import Decimal
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from trade_engine.services.screening import MultiFactorScreener
-from loguru import logger
+from trade_engine.core.logging_config import configure_logging, get_logger
 
 
 def main():
     """Run multi-factor screener on S&P 500 stocks."""
 
-    # Configure logger
-    logger.remove()
-    logger.add(
-        sys.stdout,
-        format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>",
-        level="INFO"
+    # Initialize structured logging
+    configure_logging(
+        level="INFO",
+        enable_console=True,
+        enable_file=False,  # Don't create log files for demo scripts
+        serialize=False  # Human-readable output for demos
     )
+
+    logger = get_logger(__name__)
 
     print("\n" + "="*80)
     print("Multi-Factor Stock Screener - Signal Matching Demo")
