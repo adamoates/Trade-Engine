@@ -3,9 +3,12 @@ Simulated broker for testing without real API credentials.
 
 Simulates order execution at market prices with realistic fills.
 Uses real market data but executes orders locally without exchange connection.
+
+NOTE: All financial values use Decimal for precision (NON-NEGOTIABLE).
 """
 
 from typing import Dict
+from decimal import Decimal
 from loguru import logger
 
 from trade_engine.core.types import Broker, Position
@@ -26,19 +29,19 @@ class SimulatedBroker(Broker):
         order_id = broker.buy("BTCUSDT", 0.01)
     """
 
-    def __init__(self, initial_balance: float = 500.0):
+    def __init__(self, initial_balance: Decimal = Decimal("500.0")):
         """
         Initialize simulated broker.
 
         Args:
-            initial_balance: Starting USDT balance
+            initial_balance: Starting USDT balance (Decimal for precision)
         """
         self.balance_usdt = initial_balance
         self.initial_balance = initial_balance
         self.positions_dict: Dict[str, Position] = {}
         self.order_counter = 1000
 
-        logger.info(f"SimulatedBroker initialized | Balance: ${initial_balance:,.2f}")
+        logger.info(f"SimulatedBroker initialized | Balance: ${initial_balance}")
         logger.warning("⚠️  SIMULATION MODE - Orders are simulated, not sent to exchange")
 
     def _next_order_id(self) -> str:
@@ -47,13 +50,13 @@ class SimulatedBroker(Broker):
         self.order_counter += 1
         return order_id
 
-    def buy(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def buy(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Simulate buy order (market fill).
 
         Args:
             symbol: Trading symbol
-            qty: Quantity to buy
+            qty: Quantity to buy (Decimal for precision)
             sl: Stop loss price (ignored in simulation)
             tp: Take profit price (ignored in simulation)
 
@@ -63,7 +66,7 @@ class SimulatedBroker(Broker):
         order_id = self._next_order_id()
 
         logger.info(
-            f"[SIMULATED] BUY {qty:.6f} {symbol} | "
+            f"[SIMULATED] BUY {qty} {symbol} | "
             f"Order ID: {order_id}"
         )
 
@@ -72,13 +75,13 @@ class SimulatedBroker(Broker):
 
         return order_id
 
-    def sell(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def sell(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Simulate sell order (market fill).
 
         Args:
             symbol: Trading symbol
-            qty: Quantity to sell
+            qty: Quantity to sell (Decimal for precision)
             sl: Stop loss price (ignored in simulation)
             tp: Take profit price (ignored in simulation)
 
@@ -88,7 +91,7 @@ class SimulatedBroker(Broker):
         order_id = self._next_order_id()
 
         logger.info(
-            f"[SIMULATED] SELL {qty:.6f} {symbol} | "
+            f"[SIMULATED] SELL {qty} {symbol} | "
             f"Order ID: {order_id}"
         )
 
@@ -118,7 +121,7 @@ class SimulatedBroker(Broker):
         """
         return {}
 
-    def balance(self) -> float:
+    def balance(self) -> Decimal:
         """
         Get available USDT balance.
 
@@ -126,6 +129,6 @@ class SimulatedBroker(Broker):
         This returns the initial balance for reference.
 
         Returns:
-            Current simulated balance
+            Current simulated balance (Decimal for precision)
         """
         return self.balance_usdt
