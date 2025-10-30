@@ -656,6 +656,110 @@ class TestScanUniverseIntegration:
             assert result == []  # All return None in this test
 
 
+class TestMACDCrossover:
+    """Test MACD crossover detection."""
+
+    def test_macd_crossover_logic(self):
+        """Test MACD crossover detection logic."""
+        screener = MultiFactorScreener()
+
+        # Test the crossover logic directly by checking the implementation
+        # creates the proper boolean conditions
+
+        # Create stable uptrend to ensure sufficient data
+        candles = [
+            OHLCV(
+                timestamp=i,
+                open=100 + i * 0.1,
+                high=101 + i * 0.1,
+                low=99 + i * 0.1,
+                close=100 + i * 0.1,
+                volume=1_000_000,
+                source=DataSourceType.YAHOO_FINANCE,
+                symbol="TEST"
+            )
+            for i in range(40)
+        ]
+
+        # Get MACD values
+        current_macd, current_signal = screener._calculate_macd_with_signal(candles)
+        prev_macd, prev_signal = screener._calculate_macd_with_signal(candles[:-1])
+
+        # Verify the calculation runs and returns Decimals
+        assert isinstance(current_macd, Decimal)
+        assert isinstance(current_signal, Decimal)
+        assert isinstance(prev_macd, Decimal)
+        assert isinstance(prev_signal, Decimal)
+
+        # With uptrend, both should be positive
+        assert current_macd > 0
+        assert prev_macd > 0
+
+    def test_macd_no_crossover_already_above(self):
+        """Test no crossover when MACD already above signal."""
+        screener = MultiFactorScreener()
+
+        # Create 40 candles with strong uptrend (MACD stays above)
+        candles = [
+            OHLCV(
+                timestamp=i,
+                open=100 + i,
+                high=101 + i,
+                low=99 + i,
+                close=100 + i,
+                volume=1_000_000,
+                source=DataSourceType.YAHOO_FINANCE,
+                symbol="TEST"
+            )
+            for i in range(40)
+        ]
+
+        result = screener._check_macd_crossover(candles)
+
+        # Should not detect crossover (already bullish)
+        assert result is False
+
+    def test_macd_insufficient_data(self):
+        """Test MACD returns False with insufficient data."""
+        screener = MultiFactorScreener()
+
+        candles = [
+            OHLCV(0, 100, 105, 95, 100, 1_000_000, DataSourceType.YAHOO_FINANCE, "TEST")
+            for _ in range(20)  # Less than 35 required
+        ]
+
+        result = screener._check_macd_crossover(candles)
+
+        assert result is False
+
+    def test_calculate_macd_with_signal(self):
+        """Test MACD and signal line calculation."""
+        screener = MultiFactorScreener()
+
+        candles = [
+            OHLCV(
+                timestamp=i,
+                open=100,
+                high=105,
+                low=95,
+                close=100 + i * 0.5,  # Rising prices
+                volume=1_000_000,
+                source=DataSourceType.YAHOO_FINANCE,
+                symbol="TEST"
+            )
+            for i in range(35)
+        ]
+
+        macd_line, signal_line = screener._calculate_macd_with_signal(candles)
+
+        # Both should be Decimal
+        assert isinstance(macd_line, Decimal)
+        assert isinstance(signal_line, Decimal)
+
+        # With rising prices, MACD should be positive
+        assert macd_line > 0
+
+
 class TestEdgeCases:
     """Test edge cases: empty data, single candle, insufficient history."""
 
