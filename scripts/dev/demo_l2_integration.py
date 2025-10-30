@@ -44,8 +44,6 @@ from trade_engine.core.risk_manager import RiskManager
 from trade_engine.core.types import Signal
 from trade_engine.core.logging_config import configure_logging, get_logger
 
-logger = get_logger(__name__)
-
 
 class L2IntegrationDemo:
     """
@@ -72,12 +70,15 @@ class L2IntegrationDemo:
         self.dry_run = dry_run
         self.duration_seconds = duration_seconds
 
+        # Logger (configured by main)
+        self.logger = get_logger(__name__)
+
         # Performance tracking
         self.latencies = []
         self.signal_count = 0
         self.trade_count = 0
 
-        logger.info(
+        self.logger.info(
             f"L2 Integration Demo initialized | "
             f"Symbol: {symbol} | "
             f"Mode: {'DRY-RUN' if dry_run else 'LIVE TESTNET'} | "
@@ -86,9 +87,9 @@ class L2IntegrationDemo:
 
     async def run(self):
         """Run integration demo."""
-        logger.info("="*80)
-        logger.info("STARTING L2 INTEGRATION DEMO")
-        logger.info("="*80)
+        self.logger.info("="*80)
+        self.logger.info("STARTING L2 INTEGRATION DEMO")
+        self.logger.info("="*80)
 
         # Initialize components
         order_book = OrderBook(self.symbol)
@@ -126,19 +127,19 @@ class L2IntegrationDemo:
         if not self.dry_run:
             try:
                 broker = BinanceFuturesBroker(testnet=True)
-                logger.info("Connected to Binance Futures TESTNET")
+                self.logger.info("Connected to Binance Futures TESTNET")
             except Exception as e:
-                logger.error(f"Failed to connect to broker: {e}")
-                logger.warning("Falling back to DRY-RUN mode")
+                self.logger.error(f"Failed to connect to broker: {e}")
+                self.logger.warning("Falling back to DRY-RUN mode")
                 self.dry_run = True
 
         # Fetch initial snapshot
         await feed._fetch_snapshot()
-        logger.info(f"Order book snapshot loaded: {len(feed.order_book.bids)} bids, {len(feed.order_book.asks)} asks")
+        self.logger.info(f"Order book snapshot loaded: {len(feed.order_book.bids)} bids, {len(feed.order_book.asks)} asks")
 
         # Connect WebSocket
         await feed._connect_websocket()
-        logger.info("WebSocket connected")
+        self.logger.info("WebSocket connected")
 
         # Start processing messages
         feed.running = True
@@ -165,7 +166,7 @@ class L2IntegrationDemo:
                     last_bar_time = now
 
         except KeyboardInterrupt:
-            logger.info("Demo stopped by user")
+            self.logger.info("Demo stopped by user")
         finally:
             feed.running = False
             if feed.ws_connection:
@@ -194,7 +195,7 @@ class L2IntegrationDemo:
 
         # Check order book validity
         if not order_book.is_valid():
-            logger.warning("Order book invalid, skipping bar")
+            self.logger.warning("Order book invalid, skipping bar")
             return
 
         # Get current state
@@ -224,7 +225,7 @@ class L2IntegrationDemo:
             self.signal_count += 1
 
             # Log signal
-            logger.info(
+            self.logger.info(
                 f"SIGNAL #{self.signal_count}: {signal.side.upper()} | "
                 f"Imbalance: {imbalance:.3f} | "
                 f"Price: {signal.price} | "
@@ -237,7 +238,7 @@ class L2IntegrationDemo:
             risk_result = risk_manager.check_all(signal, positions)
 
             if not risk_result.passed:
-                logger.warning(f"Risk check FAILED: {risk_result.reason}")
+                self.logger.warning(f"Risk check FAILED: {risk_result.reason}")
                 continue
 
             # Execute trade if live mode
@@ -247,9 +248,9 @@ class L2IntegrationDemo:
                     self.trade_count += 1
                     risk_manager.record_trade()
                 except Exception as e:
-                    logger.error(f"Trade execution failed: {e}")
+                    self.logger.error(f"Trade execution failed: {e}")
             else:
-                logger.info(f"DRY-RUN: Would execute {signal.side} order")
+                self.logger.info(f"DRY-RUN: Would execute {signal.side} order")
 
         # Track latency
         latency_ms = (time.time() - start_time) * 1000
@@ -280,7 +281,7 @@ class L2IntegrationDemo:
                 sl=signal.sl,
                 tp=signal.tp
             )
-            logger.success(f"BUY executed | Order ID: {order_id}")
+            self.logger.success(f"BUY executed | Order ID: {order_id}")
 
         elif signal.side == "sell":
             order_id = broker.sell(
@@ -289,11 +290,11 @@ class L2IntegrationDemo:
                 sl=signal.sl,
                 tp=signal.tp
             )
-            logger.success(f"SELL executed | Order ID: {order_id}")
+            self.logger.success(f"SELL executed | Order ID: {order_id}")
 
         elif signal.side == "close":
             broker.close_all(symbol=signal.symbol)
-            logger.success(f"Position CLOSED")
+            self.logger.success(f"Position CLOSED")
 
     def _log_state(
         self,
@@ -305,7 +306,7 @@ class L2IntegrationDemo:
     ):
         """Log current state."""
         spread_str = f"{spread_bps:.2f}" if spread_bps else "0.00"
-        logger.info(
+        self.logger.info(
             f"STATE | "
             f"Imbalance: {imbalance:.3f} | "
             f"Mid: {mid_price} | "
@@ -319,30 +320,30 @@ class L2IntegrationDemo:
         """Print execution summary."""
         elapsed = time.time() - start_time
 
-        logger.info("="*80)
-        logger.info("DEMO COMPLETE")
-        logger.info("="*80)
+        self.logger.info("="*80)
+        self.logger.info("DEMO COMPLETE")
+        self.logger.info("="*80)
 
-        logger.info(f"Duration: {elapsed:.1f}s")
-        logger.info(f"Signals Generated: {self.signal_count}")
-        logger.info(f"Trades Executed: {self.trade_count} ({'DRY-RUN' if self.dry_run else 'LIVE'})")
+        self.logger.info(f"Duration: {elapsed:.1f}s")
+        self.logger.info(f"Signals Generated: {self.signal_count}")
+        self.logger.info(f"Trades Executed: {self.trade_count} ({'DRY-RUN' if self.dry_run else 'LIVE'})")
 
         if self.latencies:
             avg_latency = sum(self.latencies) / len(self.latencies)
             max_latency = max(self.latencies)
             p95_latency = sorted(self.latencies)[int(len(self.latencies) * 0.95)]
 
-            logger.info(f"Performance:")
-            logger.info(f"  Avg Latency: {avg_latency:.2f}ms")
-            logger.info(f"  P95 Latency: {p95_latency:.2f}ms")
-            logger.info(f"  Max Latency: {max_latency:.2f}ms")
+            self.logger.info(f"Performance:")
+            self.logger.info(f"  Avg Latency: {avg_latency:.2f}ms")
+            self.logger.info(f"  P95 Latency: {p95_latency:.2f}ms")
+            self.logger.info(f"  Max Latency: {max_latency:.2f}ms")
 
             if avg_latency < 50:
-                logger.success(f"✓ Latency target MET (<50ms)")
+                self.logger.success(f"✓ Latency target MET (<50ms)")
             else:
-                logger.warning(f"✗ Latency target MISSED (avg {avg_latency:.2f}ms > 50ms)")
+                self.logger.warning(f"✗ Latency target MISSED (avg {avg_latency:.2f}ms > 50ms)")
 
-        logger.info("="*80)
+        self.logger.info("="*80)
 
 
 async def main():
@@ -372,6 +373,7 @@ async def main():
     try:
         await demo.run()
     except Exception as e:
+        logger = get_logger(__name__)
         logger.error(f"Demo failed: {e}")
         import traceback
         traceback.print_exc()

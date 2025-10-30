@@ -102,7 +102,16 @@ def configure_logging(
     # File handlers
     if enable_file:
         log_dir = log_dir or Path("logs")
-        log_dir.mkdir(exist_ok=True)
+
+        # Create log directory with error handling
+        try:
+            log_dir.mkdir(exist_ok=True, parents=True)
+        except PermissionError as e:
+            logger.error(f"Cannot create log directory {log_dir}: insufficient permissions")
+            raise PermissionError(f"Failed to create log directory {log_dir}: {e}") from e
+        except OSError as e:
+            logger.error(f"Cannot create log directory {log_dir}: {e}")
+            raise OSError(f"Failed to create log directory {log_dir}: {e}") from e
 
         # Main application log (all events)
         logger.add(
