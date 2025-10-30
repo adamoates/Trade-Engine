@@ -26,12 +26,15 @@ The tracker measures:
 
 This data feeds back into the Asset Class Adapter to continuously improve
 parameter tuning based on real performance data.
+
+NOTE: All financial values use Decimal for precision (NON-NEGOTIABLE).
 """
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
+from decimal import Decimal
 import statistics
 
 from trade_engine.domain.strategies.asset_class_adapter import AssetClass
@@ -39,16 +42,19 @@ from trade_engine.domain.strategies.asset_class_adapter import AssetClass
 
 @dataclass
 class SignalOutcome:
-    """Record of a trading signal and its outcome."""
+    """Record of a trading signal and its outcome.
+
+    NOTE: Price and P&L fields use Decimal for precision.
+    """
     timestamp: datetime
     indicator: str  # "MACD", "RSI", "BB", etc.
     asset_class: AssetClass
     symbol: str
     direction: str  # "UP" or "DOWN"
-    entry_price: float
-    exit_price: Optional[float] = None
+    entry_price: Decimal
+    exit_price: Optional[Decimal] = None
     exit_timestamp: Optional[datetime] = None
-    profit_loss_pct: Optional[float] = None
+    profit_loss_pct: Optional[Decimal] = None
     was_profitable: Optional[bool] = None
     market_regime: Optional[str] = None  # "TRENDING", "RANGING"
 
@@ -114,7 +120,7 @@ class IndicatorPerformanceTracker:
         asset_class: AssetClass,
         symbol: str,
         direction: str,
-        entry_price: float,
+        entry_price: Decimal,
         timestamp: Optional[datetime] = None,
         market_regime: Optional[str] = None
     ) -> None:
@@ -124,6 +130,7 @@ class IndicatorPerformanceTracker:
         Args:
             indicator: Indicator that generated signal
             asset_class: Asset class being traded
+            entry_price: Entry price (Decimal for precision)
             symbol: Symbol
             direction: Signal direction
             entry_price: Entry price
@@ -147,7 +154,7 @@ class IndicatorPerformanceTracker:
         self,
         indicator: str,
         symbol: str,
-        exit_price: float,
+        exit_price: Decimal,
         exit_timestamp: Optional[datetime] = None
     ) -> None:
         """
@@ -156,7 +163,7 @@ class IndicatorPerformanceTracker:
         Args:
             indicator: Indicator that generated signal
             symbol: Symbol
-            exit_price: Exit price
+            exit_price: Exit price (Decimal for precision)
             exit_timestamp: Exit timestamp
         """
         exit_time = exit_timestamp or datetime.now()
