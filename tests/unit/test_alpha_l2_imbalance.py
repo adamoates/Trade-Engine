@@ -339,6 +339,7 @@ class TestL2ImbalanceStrategy:
         # Create invalid order book (empty)
         invalid_ob = OrderBook("BTCUSDT")
         strategy = L2ImbalanceStrategy(
+            symbol="BTCUSDT",
             order_book=invalid_ob
         )
 
