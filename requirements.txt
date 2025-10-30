@@ -24,6 +24,7 @@
 black>=24.0.0
 ccxt>=4.5.0  # Use latest stable (4.2.0 never existed, currently 4.5.x)
 loguru==0.7.2
+structlog>=24.1.0  # Structured logging with JSON support
 mypy>=1.8.0
 numpy>=1.26.0  # Updated for Python 3.13 compatibility
 pandas>=2.2.0  # Updated for Python 3.13 compatibility
