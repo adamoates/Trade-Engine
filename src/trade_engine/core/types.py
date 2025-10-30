@@ -4,23 +4,30 @@ Core interfaces for live trading engine.
 Defines abstract base classes for DataFeed, Broker, and Strategy.
 These interfaces allow for easy testing (mock implementations) and
 swapping between paper/live brokers.
+
+IMPORTANT: All financial values (prices, quantities, PnL) use Decimal type.
+This is NON-NEGOTIABLE to avoid float rounding errors in financial calculations.
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Iterator, Dict, Any
 from datetime import datetime
+from decimal import Decimal
 
 
 @dataclass
 class Bar:
-    """Single OHLCV bar with validation metadata."""
+    """Single OHLCV bar with validation metadata.
+
+    NOTE: OHLCV values use Decimal for precision.
+    """
     timestamp: int       # UTC timestamp (milliseconds)
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+    volume: Decimal
     gap_flag: bool = False       # True if bar was filled/imputed
     zero_vol_flag: bool = False  # True if zero volume (should skip)
 
@@ -37,13 +44,16 @@ class Bar:
 
 @dataclass
 class Signal:
-    """Trading signal from strategy."""
+    """Trading signal from strategy.
+
+    NOTE: All financial values (qty, price, sl, tp) use Decimal for precision.
+    """
     symbol: str
-    side: str           # "buy" | "sell" | "close"
-    qty: float          # Base currency quantity (e.g., 0.01 BTC)
-    price: float        # Signal generation price (for logging)
-    sl: float | None = None    # Stop loss price
-    tp: float | None = None    # Take profit price
+    side: str                  # "buy" | "sell" | "close"
+    qty: Decimal               # Base currency quantity (e.g., 0.01 BTC)
+    price: Decimal             # Signal generation price (for logging)
+    sl: Decimal | None = None  # Stop loss price
+    tp: Decimal | None = None  # Take profit price
     reason: str = ""           # Why signal generated (for audit log)
 
     def __repr__(self):
@@ -55,17 +65,20 @@ class Signal:
 
 @dataclass
 class Position:
-    """Current position state."""
+    """Current position state.
+
+    NOTE: All financial values use Decimal for precision.
+    """
     symbol: str
-    side: str           # "long" | "short"
-    qty: float          # Position size (base currency)
-    entry_price: float
-    current_price: float
-    pnl: float          # Unrealized P&L (USD)
-    pnl_pct: float      # Unrealized P&L (%)
+    side: str              # "long" | "short"
+    qty: Decimal           # Position size (base currency)
+    entry_price: Decimal
+    current_price: Decimal
+    pnl: Decimal           # Unrealized P&L (USD)
+    pnl_pct: Decimal       # Unrealized P&L (%)
 
     @property
-    def notional(self) -> float:
+    def notional(self) -> Decimal:
         """Position notional value (USD)."""
         return self.qty * self.current_price
 
@@ -109,13 +122,13 @@ class Broker(ABC):
     """
 
     @abstractmethod
-    def buy(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def buy(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Place buy order (long entry or short exit).
 
         Args:
             symbol: Trading pair (e.g., "BTCUSDT")
-            qty: Quantity in base currency (e.g., 0.01 BTC)
+            qty: Quantity in base currency (e.g., Decimal("0.01") BTC)
             sl: Stop loss price (optional)
             tp: Take profit price (optional)
 
@@ -124,15 +137,19 @@ class Broker(ABC):
 
         Raises:
             BrokerError: On exchange errors, insufficient balance, etc.
+
+        NOTE: All financial values must be Decimal type for precision.
         """
         pass
 
     @abstractmethod
-    def sell(self, symbol: str, qty: float, sl: float | None = None, tp: float | None = None) -> str:
+    def sell(self, symbol: str, qty: Decimal, sl: Decimal | None = None, tp: Decimal | None = None) -> str:
         """
         Place sell order (short entry or long exit).
 
         Args/Returns: Same as buy()
+
+        NOTE: All financial values must be Decimal type for precision.
         """
         pass
 
@@ -158,12 +175,12 @@ class Broker(ABC):
         pass
 
     @abstractmethod
-    def balance(self) -> float:
+    def balance(self) -> Decimal:
         """
         Get available balance (USD or USDT).
 
         Returns:
-            Available balance for trading
+            Available balance for trading (Decimal for precision)
         """
         pass
 

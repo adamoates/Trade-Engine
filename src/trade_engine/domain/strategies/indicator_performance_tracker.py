@@ -26,12 +26,15 @@ The tracker measures:
 
 This data feeds back into the Asset Class Adapter to continuously improve
 parameter tuning based on real performance data.
+
+NOTE: All financial values use Decimal for precision (NON-NEGOTIABLE).
 """
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
+from decimal import Decimal
 import statistics
 
 from trade_engine.domain.strategies.asset_class_adapter import AssetClass
@@ -39,16 +42,19 @@ from trade_engine.domain.strategies.asset_class_adapter import AssetClass
 
 @dataclass
 class SignalOutcome:
-    """Record of a trading signal and its outcome."""
+    """Record of a trading signal and its outcome.
+
+    NOTE: Price and P&L fields use Decimal for precision.
+    """
     timestamp: datetime
     indicator: str  # "MACD", "RSI", "BB", etc.
     asset_class: AssetClass
     symbol: str
     direction: str  # "UP" or "DOWN"
-    entry_price: float
-    exit_price: Optional[float] = None
+    entry_price: Decimal
+    exit_price: Optional[Decimal] = None
     exit_timestamp: Optional[datetime] = None
-    profit_loss_pct: Optional[float] = None
+    profit_loss_pct: Optional[Decimal] = None
     was_profitable: Optional[bool] = None
     market_regime: Optional[str] = None  # "TRENDING", "RANGING"
 
@@ -114,7 +120,7 @@ class IndicatorPerformanceTracker:
         asset_class: AssetClass,
         symbol: str,
         direction: str,
-        entry_price: float,
+        entry_price: Decimal,
         timestamp: Optional[datetime] = None,
         market_regime: Optional[str] = None
     ) -> None:
@@ -124,6 +130,7 @@ class IndicatorPerformanceTracker:
         Args:
             indicator: Indicator that generated signal
             asset_class: Asset class being traded
+            entry_price: Entry price (Decimal for precision)
             symbol: Symbol
             direction: Signal direction
             entry_price: Entry price
@@ -147,7 +154,7 @@ class IndicatorPerformanceTracker:
         self,
         indicator: str,
         symbol: str,
-        exit_price: float,
+        exit_price: Decimal,
         exit_timestamp: Optional[datetime] = None
     ) -> None:
         """
@@ -156,7 +163,7 @@ class IndicatorPerformanceTracker:
         Args:
             indicator: Indicator that generated signal
             symbol: Symbol
-            exit_price: Exit price
+            exit_price: Exit price (Decimal for precision)
             exit_timestamp: Exit timestamp
         """
         exit_time = exit_timestamp or datetime.now()
@@ -252,20 +259,25 @@ class IndicatorPerformanceTracker:
         # Return metrics
         returns = [s.profit_loss_pct for s in completed if s.profit_loss_pct is not None]
         if returns:
-            metrics.avg_return_pct = statistics.mean(returns)
+            # Convert Decimal to float for statistics functions
+            # Note: statistics module returns float, so we convert back to float for metrics
+            returns_float = [float(r) for r in returns]
 
-            winning_returns = [r for r in returns if r > 0]
+            metrics.avg_return_pct = statistics.mean(returns_float)
+
+            winning_returns = [r for r in returns_float if r > 0]
             if winning_returns:
                 metrics.avg_winning_return_pct = statistics.mean(winning_returns)
 
-            losing_returns = [r for r in returns if r <= 0]
+            losing_returns = [r for r in returns_float if r <= 0]
             if losing_returns:
                 metrics.avg_losing_return_pct = statistics.mean(losing_returns)
 
             # Sharpe ratio (simplified)
-            if len(returns) > 1:
-                std_return = statistics.stdev(returns)
+            if len(returns_float) > 1:
+                std_return = statistics.stdev(returns_float)
                 if std_return > 0:
+                    # Both values are now float, no type mismatch
                     metrics.sharpe_ratio = (metrics.avg_return_pct / std_return)
 
         # Consecutive wins/losses
@@ -376,28 +388,28 @@ class IndicatorPerformanceTracker:
         if metrics.total_signals < 5:
             return 50.0  # Neutral score for insufficient data
 
-        # Component scores
-        win_rate_score = metrics.win_rate  # Already 0-100
+        # Component scores (all float for consistent arithmetic)
+        win_rate_score = float(metrics.win_rate)  # Already 0-100
 
         # Return score (normalize to 0-100)
         # Assume -10% to +10% range maps to 0-100
-        return_score = min(100, max(0, (metrics.avg_return_pct + 10) * 5))
+        return_score = min(100.0, max(0.0, (float(metrics.avg_return_pct) + 10.0) * 5.0))
 
         # Reliability score based on Sharpe ratio
         reliability_score = 50.0  # Default
         if metrics.sharpe_ratio is not None:
             # Sharpe > 2 = excellent (100), < 0 = poor (0)
-            reliability_score = min(100, max(0, metrics.sharpe_ratio * 50))
+            reliability_score = min(100.0, max(0.0, float(metrics.sharpe_ratio) * 50.0))
 
         # False positive penalty
-        fp_penalty = metrics.false_positive_rate  # 0-100
+        fp_penalty = float(metrics.false_positive_rate)  # 0-100
 
-        # Weighted combination
+        # Weighted combination (all operands are float now)
         effectiveness = (
             win_rate_score * 0.4 +
             return_score * 0.3 +
             reliability_score * 0.2 +
-            (100 - fp_penalty) * 0.1
+            (100.0 - fp_penalty) * 0.1
         )
 
         return effectiveness
