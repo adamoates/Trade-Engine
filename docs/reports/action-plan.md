@@ -52,12 +52,15 @@ This document tracks improvements based on comprehensive code review feedback.
 - ✅ CI check added: detects float in critical financial code
 - ✅ Audit verification: `grep` reports no float in critical path
 
-**Remaining Work** (non-critical, acceptable):
+**Remaining Work** (non-critical, acceptable for now):
 - [ ] Services layer has float usage (signal_normalizer, data aggregator, backtest metrics)
   - *Rationale*: Derived metrics (Sharpe ratio, z-scores) don't require Decimal precision
+  - *Tracked*: Will revisit if precision issues arise in Phase 2+ (backtest validation)
 - [ ] Alpha strategies (MACD, RSI, Bollinger) use float for indicators
   - *Rationale*: Technical indicators are not in critical execution path
+  - *Tracked*: Acceptable unless used in live signal generation
 - [ ] Add pre-commit hook (recommended but not blocking)
+  - *Tracked*: Item #12 (future optimization)
 
 **Note**: CI enforces Decimal in **critical trading path only** (core, brokers, L2 strategy). Non-critical code allowed to use float for performance/convenience.
 
@@ -415,6 +418,53 @@ This document tracks improvements based on comprehensive code review feedback.
 1. Complete all documentation
 2. Tag Phase 0 release (v0.1.0)
 3. Begin Phase 1 implementation (paper trading)
+
+---
+
+## 🔧 Technical Debt & Future Optimizations
+
+### 13. Float Usage Cleanup (Non-Critical Paths)
+**Status**: Tracked, not blocking
+**Priority**: Low
+
+**Known float usage outside critical path**:
+1. **Services layer**:
+   - `signal_normalizer.py` - Statistical calculations (z-scores, percentiles)
+   - `aggregator.py` - Data aggregation metrics
+   - `backtest/metrics.py` - Sharpe ratio, Sortino ratio
+   - *Decision*: Keep as float (performance + stdlib compatibility)
+   - *Revisit*: If precision issues arise in Phase 2 backtesting
+
+2. **Alpha strategies**:
+   - `alpha_macd.py` - EMA calculations
+   - `alpha_rsi_divergence.py` - RSI calculations
+   - `alpha_bollinger.py` - Standard deviation
+   - *Decision*: Keep as float (not in live execution path)
+   - *Revisit*: If used in live signal generation
+
+3. **Data types**:
+   - `types_microstructure.py` - Order book imbalance calculations
+   - `types.py` - OHLCV data from external sources
+   - *Decision*: Accept float from external APIs, convert at boundary
+   - *Revisit*: Phase 2 if data quality issues
+
+**Tracking**:
+- Documented in this section for future reference
+- Will review during Phase 2 (backtesting validation)
+- May add pre-commit hook if issues arise
+
+### 14. Pre-commit Hooks
+**Status**: Not implemented
+**Priority**: Low (nice-to-have)
+
+**Actions**:
+- [ ] Add hook to detect float in critical paths
+- [ ] Add hook to prevent `.env` commits
+- [ ] Add hook to run tests before commit
+- [ ] Document hook installation in README
+
+**Owner**: TBD
+**Target**: Phase 1 (developer experience improvement)
 
 ---
 
