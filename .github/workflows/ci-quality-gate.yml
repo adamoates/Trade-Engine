@@ -193,28 +193,28 @@ jobs:
           if [ -f "src/trade_engine/core/risk_rules.py" ]; then
             echo "✅ Risk rules file found"
 
-            # Verify critical limits are defined with Decimal type
-            echo "Checking for Decimal-based risk limits..."
-            REQUIRED_LIMITS=(
-              "MAX_POSITION_SIZE_USD"
-              "DAILY_LOSS_LIMIT_USD"
-              "MAX_DRAWDOWN_USD"
-              "MAX_HOLD_TIME_SECONDS"
-            )
+            # Verify critical limits are defined with appropriate types
+            echo "Checking for properly typed risk limits..."
 
-            MISSING_LIMITS=()
-            for limit in "${REQUIRED_LIMITS[@]}"; do
+            # Decimal-based limits (financial values)
+            DECIMAL_LIMITS=("MAX_POSITION_SIZE_USD" "DAILY_LOSS_LIMIT_USD" "MAX_DRAWDOWN_USD")
+            for limit in "${DECIMAL_LIMITS[@]}"; do
               if ! grep -q "$limit.*Decimal" src/trade_engine/core/risk_rules.py; then
-                MISSING_LIMITS+=("$limit")
+                echo "❌ ERROR: $limit must use Decimal type"
+                exit 1
               fi
             done
 
-            if [ ${#MISSING_LIMITS[@]} -gt 0 ]; then
-              echo "❌ ERROR: Missing or non-Decimal risk limits: ${MISSING_LIMITS[*]}"
-              exit 1
-            else
-              echo "✅ All critical risk limits defined with Decimal type"
-            fi
+            # Integer limits (time/count based)
+            INT_LIMITS=("MAX_HOLD_TIME_SECONDS")
+            for limit in "${INT_LIMITS[@]}"; do
+              if ! grep -q "$limit.*int" src/trade_engine/core/risk_rules.py; then
+                echo "❌ ERROR: $limit must use int type"
+                exit 1
+              fi
+            done
+
+            echo "✅ All critical risk limits defined with correct types"
 
             # Verify limits are reasonable (not accidentally set to zero or extreme values)
             echo "Validating limit values..."
