@@ -339,7 +339,6 @@ class TestL2ImbalanceStrategy:
         # Create invalid order book (empty)
         invalid_ob = OrderBook("BTCUSDT")
         strategy = L2ImbalanceStrategy(
-            symbol="BTCUSDT",
             order_book=invalid_ob
         )
 
@@ -865,3 +864,111 @@ class TestL2ImbalanceStrategyKillSwitch:
         signals = self.strategy.on_bar(bar)
         assert len(signals) == 1
         assert self.strategy.in_position is True
+
+
+class TestL2StrategyTimestampTypes:
+    """Test that L2 strategy uses correct types for timestamps."""
+
+    def test_entry_time_is_int_not_float(self):
+        """Test entry_time is int (Unix timestamp in seconds)."""
+        # ARRANGE
+        order_book = Mock(spec=OrderBook)
+        order_book.is_valid.return_value = True
+        order_book.calculate_imbalance.return_value = Decimal("4.0")  # Strong buy signal
+        order_book.get_spread_bps.return_value = Decimal("10")
+        order_book.get_mid_price.return_value = Decimal("50000")
+
+        strategy = L2ImbalanceStrategy("BTCUSDT", order_book)
+        bar = Bar(
+            timestamp=time.time(),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("100")
+        )
+
+        # ACT
+        before_time = int(time.time())
+        signals = strategy.on_bar(bar)
+        after_time = int(time.time())
+
+        # ASSERT
+        assert len(signals) == 1
+        assert strategy.entry_time is not None
+        assert isinstance(strategy.entry_time, int), f"entry_time should be int, got {type(strategy.entry_time)}"
+        assert before_time <= strategy.entry_time <= after_time + 1
+
+    def test_last_signal_time_is_int_not_float(self):
+        """Test last_signal_time is int (Unix timestamp in seconds)."""
+        # ARRANGE
+        order_book = Mock(spec=OrderBook)
+        order_book.is_valid.return_value = True
+        order_book.calculate_imbalance.return_value = Decimal("4.0")
+        order_book.get_spread_bps.return_value = Decimal("10")
+        order_book.get_mid_price.return_value = Decimal("50000")
+
+        strategy = L2ImbalanceStrategy("BTCUSDT", order_book)
+        bar = Bar(
+            timestamp=time.time(),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("100")
+        )
+
+        # ACT
+        before_time = int(time.time())
+        signals = strategy.on_bar(bar)
+        after_time = int(time.time())
+
+        # ASSERT
+        assert isinstance(strategy.last_signal_time, int), f"last_signal_time should be int, got {type(strategy.last_signal_time)}"
+        assert before_time <= strategy.last_signal_time <= after_time + 1
+
+    def test_timestamps_initialized_as_int(self):
+        """Test strategy initializes timestamps as int (not float)."""
+        # ARRANGE & ACT
+        order_book = Mock(spec=OrderBook)
+        strategy = L2ImbalanceStrategy("BTCUSDT", order_book)
+
+        # ASSERT
+        assert strategy.entry_time is None  # Not set yet
+        assert isinstance(strategy.last_signal_time, int), "last_signal_time should be int"
+        assert strategy.last_signal_time == 0  # Initial value
+
+    def test_timestamp_arithmetic_uses_integers(self):
+        """Test cooldown calculation uses integer arithmetic."""
+        # ARRANGE
+        order_book = Mock(spec=OrderBook)
+        order_book.is_valid.return_value = True
+        order_book.calculate_imbalance.return_value = Decimal("4.0")
+        order_book.get_spread_bps.return_value = Decimal("10")
+        order_book.get_mid_price.return_value = Decimal("50000")
+
+        config = L2StrategyConfig(cooldown_seconds=2)
+        strategy = L2ImbalanceStrategy("BTCUSDT", order_book, config)
+        bar = Bar(
+            timestamp=time.time(),
+            open=Decimal("50000"),
+            high=Decimal("50000"),
+            low=Decimal("50000"),
+            close=Decimal("50000"),
+            volume=Decimal("100")
+        )
+
+        # ACT: Generate first signal
+        signals1 = strategy.on_bar(bar)
+        assert len(signals1) == 1  # Signal generated
+
+        # ACT: Try to generate second signal immediately (should be blocked by cooldown)
+        signals2 = strategy.on_bar(bar)
+        assert len(signals2) == 0  # Blocked by cooldown
+
+        # ACT: Wait for cooldown and try again
+        time.sleep(2.1)
+        order_book.calculate_imbalance.return_value = Decimal("0.25")  # Exit signal
+        signals3 = strategy.on_bar(bar)
+        # Should generate exit signal (no cooldown on exits)
+        assert len(signals3) == 1
