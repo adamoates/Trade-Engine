@@ -126,6 +126,45 @@ class TestLoggingConfiguration:
         # Should not raise
         logger.info("test message")
 
+    def test_configure_logging_creates_nested_log_dir(self):
+        """Test that configure_logging creates nested log directories."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir) / "nested" / "logs" / "deep"
+
+            configure_logging(
+                level="INFO",
+                log_dir=log_dir,
+                enable_console=False,
+                enable_file=True
+            )
+
+            assert log_dir.exists()
+            assert log_dir.is_dir()
+
+    def test_configure_logging_raises_on_permission_error(self):
+        """Test that configure_logging raises PermissionError with clear message."""
+        import stat
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a directory with no write permissions
+            parent_dir = Path(tmpdir) / "readonly"
+            parent_dir.mkdir()
+            parent_dir.chmod(stat.S_IRUSR | stat.S_IXUSR)  # Read + execute only
+
+            log_dir = parent_dir / "logs"
+
+            try:
+                with pytest.raises(PermissionError, match="Failed to create log directory"):
+                    configure_logging(
+                        level="INFO",
+                        log_dir=log_dir,
+                        enable_console=False,
+                        enable_file=True
+                    )
+            finally:
+                # Restore permissions for cleanup
+                parent_dir.chmod(stat.S_IRWXU)
+
 
 class TestTradingLogger:
     """Test TradingLogger for standardized trading events."""

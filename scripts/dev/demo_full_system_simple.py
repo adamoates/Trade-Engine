@@ -31,19 +31,14 @@ from typing import List, Dict, Any
 from dataclasses import dataclass, field
 
 import numpy as np
-from loguru import logger
 
 # Import validated components
 from trade_engine.services.data.web3_signals import Web3DataSource, GasData, LiquidityData, FundingRateData
 from trade_engine.services.data.signal_normalizer import SignalNormalizer
+from trade_engine.core.logging_config import configure_logging, get_logger
 
-# Configure logger
-logger.remove()
-logger.add(
-    sys.stdout,
-    format="<green>{time:HH:mm:ss}</green> | <level>{level:8}</level> | <level>{message}</level>",
-    level="INFO"
-)
+# Module-level logger (configure_logging() must be called in main() first)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -511,15 +506,25 @@ async def run_demo(cycles: int, delay: float):
 
 
 def main():
+    # Initialize structured logging
+    configure_logging(
+        level="INFO",
+        enable_console=True,
+        enable_file=False,  # Don't create log files for demo scripts
+        serialize=False  # Human-readable output for demos
+    )
+
+    logger = get_logger(__name__)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--cycles", type=int, default=30)
     parser.add_argument("--delay", type=float, default=0.3)
     args = parser.parse_args()
-    
+
     cycles = 10 if args.quick else args.cycles
     delay = 0.2 if args.quick else args.delay
-    
+
     try:
         asyncio.run(run_demo(cycles, delay))
     except KeyboardInterrupt:
