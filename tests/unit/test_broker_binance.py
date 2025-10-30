@@ -356,3 +356,55 @@ class TestBrokerOrderOperations:
 
             # ASSERT
             broker.buy.assert_called_once_with("ETHUSDT", 0.01)
+
+
+class TestBrokerHelperMethods:
+    """Test broker helper methods."""
+
+    def test_get_ticker_price_returns_decimal(self):
+        """Test get_ticker_price() returns Decimal (not float)."""
+        # ARRANGE
+        with patch.dict(os.environ, {
+            "BINANCE_TESTNET_API_KEY": "a" * 64,
+            "BINANCE_TESTNET_API_SECRET": "b" * 64
+        }):
+            broker = BinanceFuturesBroker(testnet=True)
+
+            # Mock API response
+            broker._request = Mock(return_value={
+                "symbol": "BTCUSDT",
+                "markPrice": "50000.12345678"
+            })
+
+            # ACT
+            price = broker.get_ticker_price("BTCUSDT")
+
+            # ASSERT
+            assert isinstance(price, Decimal), f"Expected Decimal, got {type(price)}"
+            assert price == Decimal("50000.12345678")
+            broker._request.assert_called_once_with(
+                "GET", "/fapi/v1/premiumIndex", symbol="BTCUSDT"
+            )
+
+    def test_get_ticker_price_preserves_precision(self):
+        """Test get_ticker_price() preserves full precision (not rounded)."""
+        # ARRANGE
+        with patch.dict(os.environ, {
+            "BINANCE_TESTNET_API_KEY": "a" * 64,
+            "BINANCE_TESTNET_API_SECRET": "b" * 64
+        }):
+            broker = BinanceFuturesBroker(testnet=True)
+
+            # Mock response with many decimal places
+            broker._request = Mock(return_value={
+                "markPrice": "0.00012345678901234567890"
+            })
+
+            # ACT
+            price = broker.get_ticker_price("ETHUSDT")
+
+            # ASSERT
+            # Decimal should preserve all digits (float would lose precision)
+            assert price == Decimal("0.00012345678901234567890")
+            # Verify not silently converted to float
+            assert str(price) == "0.00012345678901234567890"

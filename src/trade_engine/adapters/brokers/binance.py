@@ -292,7 +292,7 @@ class BinanceFuturesBroker(Broker):
 
     # ========== Helper Methods ==========
 
-    def get_ticker_price(self, symbol: str) -> float:
+    def get_ticker_price(self, symbol: str) -> Decimal:
         """
         Get current mark price.
 
@@ -300,10 +300,10 @@ class BinanceFuturesBroker(Broker):
             symbol: Trading pair (e.g., "BTCUSDT")
 
         Returns:
-            Current mark price
+            Current mark price as Decimal for precision
         """
         result = self._request("GET", "/fapi/v1/premiumIndex", symbol=symbol)
-        return float(result["markPrice"])
+        return Decimal(str(result["markPrice"]))
 
     def cancel_all_orders(self, symbol: str):
         """
