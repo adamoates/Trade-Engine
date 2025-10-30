@@ -4,57 +4,112 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MFT Bot** is a Medium-Frequency Trading system for cryptocurrency futures using Level 2 order book imbalance detection. The strategy identifies supply/demand imbalances in the order book to predict short-term price movements (5-60 second hold times).
+**Trade Engine** is a unified multi-asset signal generation platform that identifies trading opportunities across cryptocurrency futures, options, and equities using sophisticated technical analysis and order book imbalance detection.
 
-**Core Strategy**: L2 Order Book Imbalance Scalping
+**Multi-Asset Architecture**: The system operates in parallel across three asset classes with independent capital allocation:
+
+### Asset Class 1: Cryptocurrency Futures
+**Strategy**: L2 Order Book Imbalance Scalping
 - Buy signal: Bid/Ask volume ratio > 3.0x (strong buying pressure)
 - Sell signal: Bid/Ask volume ratio < 0.33x (strong selling pressure)
-- Target: $50-100/day profit on $10K capital
+- Timeframe: Sub-minute (5-60 second holds)
+- Data Source: Binance/Kraken L2 WebSocket feeds
+- Target: $50-100/day profit on allocated capital
 - Expected win rate: 52-58% (based on academic research)
+
+### Asset Class 2: Options
+**Strategy**: Multi-Factor Signal Generation
+- Technical analysis across multiple timeframes
+- Options chain analysis for high-probability setups
+- Data Source: Yahoo Finance + options data providers
+- Timeframe: Daily to weekly expiries
+
+### Asset Class 3: Equities
+**Strategy**: Multi-Factor Stock Screener
+- 7-factor screening (breakout, volume, MA, MACD, RSI, gain, market cap)
+- Identifies stocks with multiple confluent buy signals
+- Data Source: Yahoo Finance daily OHLCV
+- Timeframe: Multi-day to multi-week holds
 
 **Project Timeline**: 24 weeks (6 months) from foundation to production trading
 
+## Current Status
+
+- **Current Phase**: Phase 2 (L2 Imbalance Strategy Implementation)
+- **Architecture**: Clean Architecture with three-layer separation
+- **Recent Milestone**: L2 order book imbalance strategy with multi-broker support
+- **Next Gate**: Gate 2→3 (Engine runs 24h without crashes)
+
 ## Three-Layer Architecture
 
-The system uses a separation of concerns across three distinct layers:
+The system uses Clean Architecture principles with separation of concerns across three distinct layers:
 
-### Layer 1: Execution Layer (Trading Engine)
-Core autonomous trading engine that processes real-time L2 data and executes trades.
+### Layer 1: Domain Layer (Business Logic)
+Core domain models, strategies, and business rules.
 
 **Components**:
-- **WebSocket Manager**: Binance L2 depth stream connection with auto-reconnect
-- **Order Book Processor**: Real-time bid/ask state maintenance (sortedcontainers)
-- **Signal Generator**: Imbalance ratio calculation and threshold checking
-- **Risk Manager**: Position size, daily loss, drawdown enforcement
-- **Order Executor**: Smart order placement with retry logic
-- **State Manager**: Position tracking, P&L calculation, metrics
+- **Domain Models**: Order, Position, Signal, Trade entities
+- **Strategies**: L2ImbalanceStrategy and other trading strategies
+- **Risk Rules**: Risk limit validation and enforcement logic
 
-**Performance Targets**:
-- Message processing: <5ms
-- Order placement: <20ms
-- Total latency: <50ms sustained
+**Location**: `src/trade_engine/domain/`
 
-### Layer 2: Orchestration Layer (API Server)
-FastAPI server that controls the engine and serves monitoring data.
+### Layer 2: Application Layer (Use Cases)
+Application services that orchestrate domain logic and infrastructure.
 
-**Endpoints**:
-- Engine control: `/engine/start`, `/engine/stop`, `/engine/kill`
-- Data retrieval: `/engine/status`, `/engine/position`, `/engine/orders`
-- Real-time streaming: `/engine/stream` (WebSocket)
+**Components**:
+- **Trading Services**: Order execution, position management
+- **Screening Services**: Instrument analysis and selection
+- **Backtest Services**: Historical strategy validation
+- **Audit Services**: Trade logging and compliance
 
-### Layer 3: Presentation Layer (UI)
-React dashboard for pre-trade analysis and live monitoring.
+**Location**: `src/trade_engine/services/`
 
-**Interfaces**:
-- **Scanner UI** (Phase 1): Pre-trade instrument analysis and selection
-- **Bot Control UI** (Phase 4): Live monitoring, P&L tracking, kill switch
+### Layer 3: Infrastructure Layer (External Integrations)
+Adapters for external systems and data sources.
+
+**Components**:
+- **Broker Adapters**: Kraken, Binance.us, etc.
+- **Data Feed Adapters**: Real-time L2 order book feeds
+- **Data Source Adapters**: Market data providers
+- **API**: FastAPI server for engine control
+- **Database**: PostgreSQL persistence layer
+
+**Location**: `src/trade_engine/adapters/`, `src/trade_engine/api/`, `src/trade_engine/db/`
+
+## Supported Data Sources and Brokers
+
+The system integrates with multiple data providers and execution venues across all asset classes:
+
+### Cryptocurrency Futures
+- **Binance Futures** - Primary L2 data feed (full long/short functionality)
+- **Kraken Futures** - US-accessible futures trading (recommended for US traders)
+- **Binance.us** - US-only spot trading (long-only mode, no shorting)
+
+**Note**: Spot-only mode automatically disables short signals for platforms without margin trading.
+
+### Options & Equities
+- **Yahoo Finance** - Free daily OHLCV data for stocks and options underlyings
+- **Options Data Providers** - (To be integrated in Phase 3+)
+  - Options chain data
+  - Greeks calculation
+  - Implied volatility
+
+### Multi-Asset Signal Generation
+The multi-factor screener can analyze:
+- Stocks (US equities via Yahoo Finance)
+- Options underlyings (identify setups for options plays)
+- Cryptocurrency (when daily technical analysis is relevant)
+
+See adapter implementations in `src/trade_engine/adapters/brokers/` and `src/trade_engine/services/data/`
 
 ## Python Environment
 
-- **Python Version**: 3.11+
-- **Package Management**: Will be established (poetry recommended)
+- **Python Version**: 3.11+ (tested on 3.11, 3.12, 3.13)
+- **Package Management**: setuptools with pyproject.toml
 - **Virtual Environment**: Required for development
 - **Type Hints**: Mandatory for all functions and methods
+- **Dependencies**: See `pyproject.toml` for full dependency list
 
 ## Code Standards
 
@@ -65,10 +120,33 @@ React dashboard for pre-trade analysis and live monitoring.
 - **Type Checker**: mypy (strict mode recommended)
 
 ### Code Organization
-- All source code in `src/` directory
+- All source code in `src/trade_engine/` directory
 - All tests in `tests/` directory mirroring src structure
 - Documentation in `docs/` directory
 - Configuration files at project root
+
+### Directory Structure
+```
+src/trade_engine/
+├── domain/          # Business logic and domain models
+│   ├── models/      # Core entities (Order, Position, Signal)
+│   ├── strategies/  # Trading strategies (L2ImbalanceStrategy)
+│   └── risk/        # Risk management rules
+├── services/        # Application services
+│   ├── trading/     # Order execution and position management
+│   ├── screening/   # Instrument analysis
+│   ├── backtest/    # Strategy backtesting
+│   └── audit/       # Trade logging
+├── adapters/        # External integrations
+│   ├── brokers/     # Exchange adapters (Kraken, Binance)
+│   ├── feeds/       # Real-time data feeds
+│   └── data_sources/# Market data providers
+├── api/             # FastAPI server
+│   └── routes/      # API endpoints
+├── db/              # Database models and migrations
+├── core/            # Shared infrastructure (config, logging)
+└── utils/           # Helper utilities
+```
 
 ### Naming Conventions
 - Classes: PascalCase (e.g., `TradingStrategy`, `MarketData`)
@@ -112,7 +190,8 @@ React dashboard for pre-trade analysis and live monitoring.
 
 ### Testing Framework
 - **Primary**: pytest
-- **Coverage**: pytest-cov
+- **Coverage**: pytest-cov (configured in pyproject.toml)
+- **Async Testing**: pytest-asyncio
 - **Mocking**: pytest-mock or unittest.mock
 
 ### Test Organization
@@ -135,9 +214,11 @@ React dashboard for pre-trade analysis and live monitoring.
 
 Use these slash commands for common workflows:
 
-- `/project:setup` - Set up development environment
-- `/project:test` - Run full test suite with coverage
-- `/project:lint` - Run linting and formatting checks
+- `/setup` - Set up development environment
+- `/test` - Run full test suite with coverage
+- `/lint` - Run linting and formatting checks
+
+See `.claude/commands/` for command implementations.
 
 ## Specialized Agents
 
@@ -149,11 +230,11 @@ Invoke these agents for specific tasks:
 
 ## Documentation
 
-Maintain up-to-date documentation in `/docs`:
-- `architecture.md` - System design and component relationships
-- `trading-strategies.md` - Strategy implementations and patterns
-- `data-sources.md` - Market data providers and APIs
-- `deployment.md` - Production deployment procedures
+Documentation is organized in `/docs`:
+- `docs/architecture/` - System design and component specifications
+- `docs/guides/` - Development guides and workflows
+- `docs/reports/` - Audit reports and analysis
+- `docs/deployment.md` - Production deployment procedures
 
 Reference detailed documentation using `@docs/filename.md` syntax.
 
@@ -194,6 +275,54 @@ The project uses GitHub Actions for automated quality gates and deployment.
 
 See `docs/deployment.md` for complete CI/CD documentation.
 
+## Model Context Protocol (MCP) Integration
+
+The project can leverage MCP servers for enhanced development capabilities:
+
+### Recommended MCP Servers
+
+#### Essential (Implement First)
+1. **PostgreSQL MCP** - Database operations and trade audit queries
+   - Query trade history and performance metrics
+   - Validate risk limit enforcement
+   - Debug position tracking issues
+
+2. **Slack/Discord MCP** - Critical alerts and monitoring
+   - Kill switch triggers
+   - Daily loss limit warnings
+   - Position notifications
+   - System health alerts
+
+#### Phase 2 (Monitoring & Analysis)
+3. **Redis MCP** - Real-time state management
+   - Cache L2 snapshots
+   - Pub/sub for engine ↔ API communication
+   - Session state for WebSocket connections
+
+4. **Time-Series DB MCP** (InfluxDB/TimescaleDB)
+   - Store L2 order book snapshots
+   - Performance metrics tracking
+   - Backtesting data storage
+
+#### Phase 3 (Production)
+5. **Docker MCP** - Container management
+   - Manage test containers
+   - Inspect running services
+   - Debug deployment issues
+
+6. **Prometheus/Grafana MCP** - Observability
+   - Real-time performance dashboards
+   - System health monitoring
+   - Latency tracking
+
+7. **Cloud Storage MCP** (AWS S3)
+   - Historical data archival
+   - Trade log backups
+   - Disaster recovery
+
+### MCP Configuration
+To configure MCP servers, add them to your Claude Code settings or use the appropriate MCP client configuration for your environment.
+
 ## Development Setup
 
 ### Initial Setup
@@ -205,45 +334,54 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
-pip install -e ".[dev]"  # if using setuptools
+pip install -e .
+
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Install optional dependencies
+pip install -e ".[api,database]"
 ```
 
 ### Running Tests Locally
 ```bash
 # All tests with coverage (same as CI)
-pytest --cov=engine --cov=api --cov-report=term-missing -v
+pytest --cov=src/trade_engine --cov-report=term-missing -v
 
 # Specific test file
-pytest tests/test_risk_manager.py
+pytest tests/unit/test_risk_manager.py
 
 # Specific test function
-pytest tests/test_risk_manager.py::test_kill_switch_triggers
+pytest tests/unit/test_risk_manager.py::test_kill_switch_triggers
 
 # Run with PostgreSQL container (for integration tests)
 docker-compose -f docker-compose.test.yml up -d
 pytest tests/integration/
 docker-compose -f docker-compose.test.yml down
+
+# Fast parallel execution
+pytest -n auto  # Uses pytest-xdist
 ```
 
 ### Code Quality (Run Before Pushing)
 ```bash
 # Format code
-black engine/ api/ scanner/ tests/
+black src/trade_engine/ tests/
 
 # Sort imports
-isort engine/ api/ scanner/ tests/
+isort src/trade_engine/ tests/
 
 # Lint
-ruff check engine/ api/ scanner/ tests/
+ruff check src/trade_engine/ tests/
 
 # Type check
-mypy engine/ api/
+mypy src/trade_engine/
 
 # Run all quality checks at once
-black --check engine/ api/ tests/ && \
-ruff check engine/ api/ tests/ && \
-pytest --cov=engine --cov=api -v
+black --check src/ tests/ && \
+isort --check-only src/ tests/ && \
+ruff check src/ tests/ && \
+pytest --cov=src/trade_engine -v
 ```
 
 ### Local CI Simulation
@@ -251,73 +389,330 @@ Before pushing, you can run the same checks that GitHub Actions will run:
 
 ```bash
 # Simulate CI checks locally
-./scripts/run-ci-checks.sh  # (create this script based on ci-quality-gate.yml)
+./scripts/run-ci-checks.sh  # (if available)
+# Or manually run the command chain above
 ```
 
 ## Common Patterns
 
+### Financial Calculation Pattern (CRITICAL)
+**ALWAYS use Decimal for money, prices, and quantities:**
+
+```python
+from decimal import Decimal, ROUND_HALF_UP
+
+class Position:
+    def __init__(self, symbol: str, size: str, entry_price: str):
+        # ALWAYS use string input to Decimal for exact precision
+        self.symbol = symbol
+        self.size = Decimal(size)
+        self.entry_price = Decimal(entry_price)
+
+    def calculate_value(self) -> Decimal:
+        """Calculate position value in quote currency."""
+        value = self.size * self.entry_price
+        # Quantize to appropriate precision
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def calculate_pnl(self, current_price: str) -> Decimal:
+        """Calculate unrealized P&L."""
+        current = Decimal(current_price)
+        pnl = (current - self.entry_price) * self.size
+        return pnl.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+# NEVER mix float with Decimal
+# If you must convert from float (e.g., from API), do this:
+price_from_api = 45234.5  # float from exchange
+price = Decimal(str(price_from_api))  # Convert via string
+```
+
 ### Order Book Maintenance Pattern
 ```python
+from decimal import Decimal
+from sortedcontainers import SortedDict
+import time
+
 class OrderBook:
     def __init__(self, symbol: str):
         self.symbol = symbol
-        self.bids: Dict[float, float] = {}  # {price: quantity}
-        self.asks: Dict[float, float] = {}  # {price: quantity}
+        # Use SortedDict for O(log n) operations
+        self.bids: SortedDict[Decimal, Decimal] = SortedDict()
+        self.asks: SortedDict[Decimal, Decimal] = SortedDict()
         self.last_update_time = time.time()
 
     async def handle_snapshot(self, data: dict):
         """Initialize with full snapshot from exchange."""
-        self.bids = {float(p): float(q) for p, q in data['bids']}
-        self.asks = {float(p): float(q) for p, q in data['asks']}
+        self.bids.clear()
+        self.asks.clear()
+
+        for price_str, qty_str in data['bids']:
+            price = Decimal(price_str)
+            qty = Decimal(qty_str)
+            if qty > 0:
+                self.bids[price] = qty
+
+        for price_str, qty_str in data['asks']:
+            price = Decimal(price_str)
+            qty = Decimal(qty_str)
+            if qty > 0:
+                self.asks[price] = qty
+
+        self.last_update_time = time.time()
 
     async def handle_update(self, data: dict):
         """Apply incremental delta updates."""
-        for price, quantity in data['b']:
-            price, quantity = float(price), float(quantity)
-            if quantity == 0:
+        # Bid updates
+        for price_str, qty_str in data.get('b', []):
+            price = Decimal(price_str)
+            qty = Decimal(qty_str)
+            if qty == 0:
                 self.bids.pop(price, None)  # Remove level
             else:
-                self.bids[price] = quantity  # Update level
+                self.bids[price] = qty  # Update level
+
+        # Ask updates
+        for price_str, qty_str in data.get('a', []):
+            price = Decimal(price_str)
+            qty = Decimal(qty_str)
+            if qty == 0:
+                self.asks.pop(price, None)
+            else:
+                self.asks[price] = qty
+
+        self.last_update_time = time.time()
+
+    def get_top_levels(self, depth: int = 5) -> tuple[list, list]:
+        """Get top N levels from each side."""
+        # Bids are sorted descending (highest first)
+        top_bids = list(reversed(list(self.bids.items())[-depth:]))
+        # Asks are sorted ascending (lowest first)
+        top_asks = list(self.asks.items()[:depth])
+        return top_bids, top_asks
 ```
 
 ### Imbalance Calculation Pattern
 ```python
-def calculate_imbalance(order_book: OrderBook, depth: int = 5) -> float:
-    """Calculate bid/ask volume ratio from top N levels."""
-    top_bids = sorted(order_book.bids.items(), reverse=True)[:depth]
-    top_asks = sorted(order_book.asks.items())[:depth]
+from decimal import Decimal
 
+def calculate_imbalance(order_book: OrderBook, depth: int = 5) -> Decimal:
+    """Calculate bid/ask volume ratio from top N levels.
+
+    Returns:
+        Decimal ratio where:
+        - > 1.0 indicates bid pressure (more buyers)
+        - < 1.0 indicates ask pressure (more sellers)
+        - = 1.0 indicates balance
+    """
+    top_bids, top_asks = order_book.get_top_levels(depth)
+
+    # Sum volumes using Decimal arithmetic
     bid_volume = sum(qty for price, qty in top_bids)
     ask_volume = sum(qty for price, qty in top_asks)
 
+    # Handle edge cases
     if ask_volume == 0:
-        return float('inf') if bid_volume > 0 else 1.0
+        # Infinite demand, no supply
+        return Decimal("999999") if bid_volume > 0 else Decimal("1.0")
 
-    return bid_volume / ask_volume
+    if bid_volume == 0:
+        # No demand, infinite supply
+        return Decimal("0")
+
+    # Calculate ratio with proper precision
+    ratio = bid_volume / ask_volume
+    return ratio.quantize(Decimal("0.001"))  # 3 decimal places
 ```
 
 ### Risk Validation Pattern
 ```python
+from decimal import Decimal
+from loguru import logger
+
 class RiskManager:
+    def __init__(
+        self,
+        max_position_size: Decimal,
+        daily_loss_limit: Decimal,
+        max_drawdown: Decimal
+    ):
+        self.max_position_size = max_position_size
+        self.daily_loss_limit = daily_loss_limit
+        self.max_drawdown = max_drawdown
+        self.peak_equity = Decimal("0")
+        self.kill_switch_triggered = False
+
     def can_trade(self, signal: Signal, current_position: Position) -> bool:
         """Validate ALL risk limits before allowing entry."""
+        if self.kill_switch_triggered:
+            logger.warning("Kill switch active - all trading disabled")
+            return False
+
         # Check daily loss limit
-        if self.get_daily_pnl() < -MAX_DAILY_LOSS:
+        daily_pnl = self.get_daily_pnl()
+        if daily_pnl < -self.daily_loss_limit:
             self.trigger_kill_switch("Daily loss limit breached")
             return False
 
         # Check max drawdown
-        drawdown = self.peak_equity - self.get_current_equity()
-        if drawdown > MAX_DRAWDOWN:
+        current_equity = self.get_current_equity()
+        drawdown = self.peak_equity - current_equity
+        if drawdown > self.max_drawdown:
             self.trigger_kill_switch("Max drawdown breached")
             return False
 
+        # Update peak equity
+        if current_equity > self.peak_equity:
+            self.peak_equity = current_equity
+
         # Check position size
-        if signal.position_value > MAX_POSITION_SIZE:
-            logger.warning("Position size exceeds limit")
+        if signal.position_value > self.max_position_size:
+            logger.warning(
+                "Position size exceeds limit",
+                requested=signal.position_value,
+                limit=self.max_position_size
+            )
             return False
 
         return True
+
+    def trigger_kill_switch(self, reason: str):
+        """Emergency shutdown of all trading."""
+        logger.critical("KILL SWITCH TRIGGERED", reason=reason)
+        self.kill_switch_triggered = True
+        # TODO: Flatten all positions
+        # TODO: Cancel all open orders
+        # TODO: Send alerts via MCP (Slack/Discord)
+```
+
+### WebSocket Connection Pattern
+```python
+import asyncio
+import websockets
+from loguru import logger
+
+class WebSocketManager:
+    def __init__(self, ws_url: str):
+        self.ws_url = ws_url
+        self.running = False
+        self.ws = None
+
+    async def connect(self, symbol: str):
+        """Maintain persistent WebSocket with auto-reconnect."""
+        self.running = True
+        retry_delay = 5
+        max_retry_delay = 60
+
+        while self.running:
+            try:
+                async with websockets.connect(self.ws_url) as ws:
+                    self.ws = ws
+                    logger.info("WebSocket connected", symbol=symbol)
+
+                    # Subscribe to data stream
+                    await self.subscribe(ws, symbol)
+
+                    # Reset retry delay on successful connection
+                    retry_delay = 5
+
+                    # Process messages
+                    async for message in ws:
+                        await self.handle_message(message)
+
+            except websockets.ConnectionClosed:
+                logger.warning(
+                    "WebSocket closed, reconnecting",
+                    delay=retry_delay
+                )
+                await asyncio.sleep(retry_delay)
+                # Exponential backoff
+                retry_delay = min(retry_delay * 2, max_retry_delay)
+
+            except Exception as e:
+                logger.error("WebSocket error", error=str(e))
+                await asyncio.sleep(retry_delay)
+
+    async def subscribe(self, ws, symbol: str):
+        """Send subscription message."""
+        sub_msg = {
+            "method": "SUBSCRIBE",
+            "params": [f"{symbol.lower()}@depth@100ms"],
+            "id": 1
+        }
+        await ws.send(json.dumps(sub_msg))
+
+    async def handle_message(self, message: str):
+        """Process incoming WebSocket message."""
+        # Implementation depends on strategy
+        pass
+
+    async def stop(self):
+        """Gracefully stop WebSocket connection."""
+        self.running = False
+        if self.ws:
+            await self.ws.close()
+```
+
+### Strategy Implementation Pattern
+```python
+from abc import ABC, abstractmethod
+from decimal import Decimal
+
+class BaseStrategy(ABC):
+    """Base class for all trading strategies."""
+
+    def __init__(self, config: dict):
+        self.config = config
+        self.spot_only_mode = config.get("spot_only", False)
+
+    @abstractmethod
+    async def generate_signals(self, market_data: dict) -> list[Signal]:
+        """Generate trading signals from market data.
+
+        Returns:
+            List of Signal objects with side, strength, confidence
+        """
+        pass
+
+    def filter_signals(self, signals: list[Signal]) -> list[Signal]:
+        """Filter signals based on mode (spot-only removes shorts)."""
+        if not self.spot_only_mode:
+            return signals
+
+        # Remove short signals in spot-only mode
+        return [s for s in signals if s.side != "SELL"]
+
+class L2ImbalanceStrategy(BaseStrategy):
+    """L2 order book imbalance trading strategy."""
+
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.buy_threshold = Decimal(str(config.get("buy_threshold", 3.0)))
+        self.sell_threshold = Decimal(str(config.get("sell_threshold", 0.33)))
+        self.depth = config.get("depth", 5)
+
+    async def generate_signals(self, market_data: dict) -> list[Signal]:
+        """Generate signals based on L2 imbalance."""
+        order_book = market_data['order_book']
+        imbalance = calculate_imbalance(order_book, self.depth)
+
+        signals = []
+
+        if imbalance > self.buy_threshold:
+            # Strong bid pressure - buy signal
+            signals.append(Signal(
+                side="BUY",
+                strength=float(imbalance),
+                confidence=0.8
+            ))
+        elif imbalance < self.sell_threshold:
+            # Strong ask pressure - sell signal
+            signals.append(Signal(
+                side="SELL",
+                strength=float(imbalance),
+                confidence=0.8
+            ))
+
+        return self.filter_signals(signals)
 ```
 
 ### Error Handling Pattern
@@ -339,22 +734,48 @@ class OrderRejected(TradingError):
 class DataStale(TradingError):
     """Raised when order book data is too old."""
     pass
+
+class InsufficientFunds(TradingError):
+    """Raised when account balance is insufficient."""
+    pass
+
+class ConnectionError(TradingError):
+    """Raised when connection to exchange is lost."""
+    pass
+
+# Usage
+try:
+    position = execute_trade(signal)
+except RiskLimitBreached as e:
+    logger.warning("Trade blocked by risk management", error=str(e))
+except OrderRejected as e:
+    logger.error("Exchange rejected order", error=str(e))
+except InsufficientFunds:
+    logger.critical("Account balance too low for trade")
+    # Trigger alert via MCP
 ```
 
 ### Logging Pattern
 Log EVERYTHING for audit trail and debugging:
 
 ```python
-import logging
-import structlog
+from loguru import logger
+from decimal import Decimal
 
-logger = structlog.get_logger()
+# Configure structured logging
+logger.add(
+    "logs/trading_{time}.log",
+    rotation="1 day",
+    retention="90 days",
+    compression="zip",
+    serialize=True  # JSON format for parsing
+)
 
-# Log every trade decision
+# Log every signal generation
 logger.info(
     "signal_generated",
     symbol="BTCUSDT",
-    imbalance_ratio=3.5,
+    imbalance_ratio=str(imbalance_ratio),  # Decimal to string
     side="BUY",
     strength=0.8,
     timestamp=time.time()
@@ -365,18 +786,103 @@ logger.info(
     "order_placed",
     symbol="BTCUSDT",
     side="BUY",
-    size=Decimal("0.1"),
+    size=str(Decimal("0.1")),
+    price=str(Decimal("45234.50")),
     order_id="12345",
+    timestamp=time.time()
+)
+
+# Log every trade execution
+logger.info(
+    "trade_executed",
+    symbol="BTCUSDT",
+    side="BUY",
+    size=str(Decimal("0.1")),
+    fill_price=str(Decimal("45234.50")),
+    commission=str(Decimal("4.52")),
+    order_id="12345",
+    trade_id="67890",
     timestamp=time.time()
 )
 
 # Log every risk check
 logger.warning(
     "risk_limit_approached",
-    daily_pnl=Decimal("-450"),
-    limit=Decimal("-500"),
-    remaining=Decimal("50")
+    daily_pnl=str(Decimal("-450.00")),
+    limit=str(Decimal("-500.00")),
+    remaining=str(Decimal("50.00")),
+    percentage=90.0
 )
+
+# Log kill switch triggers
+logger.critical(
+    "kill_switch_triggered",
+    reason="Daily loss limit breached",
+    daily_pnl=str(Decimal("-502.15")),
+    limit=str(Decimal("-500.00")),
+    timestamp=time.time()
+)
+```
+
+### Database Schema Pattern
+```python
+from sqlalchemy import Column, String, Numeric, DateTime, Integer
+from sqlalchemy.ext.declarative import declarative_base
+from decimal import Decimal
+
+Base = declarative_base()
+
+class Trade(Base):
+    """All executed trades for audit trail."""
+    __tablename__ = 'trades'
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String, nullable=False)
+    side = Column(String, nullable=False)  # BUY or SELL
+    size = Column(Numeric(20, 8), nullable=False)  # Decimal precision
+    price = Column(Numeric(20, 8), nullable=False)
+    commission = Column(Numeric(20, 8), nullable=False)
+    order_id = Column(String, nullable=False)
+    trade_id = Column(String, unique=True, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+
+class Position(Base):
+    """Current and historical positions."""
+    __tablename__ = 'positions'
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String, nullable=False)
+    size = Column(Numeric(20, 8), nullable=False)
+    entry_price = Column(Numeric(20, 8), nullable=False)
+    current_price = Column(Numeric(20, 8))
+    unrealized_pnl = Column(Numeric(20, 2))
+    realized_pnl = Column(Numeric(20, 2))
+    opened_at = Column(DateTime, nullable=False)
+    closed_at = Column(DateTime)
+
+class RiskEvent(Base):
+    """Kill switch triggers and limit breaches."""
+    __tablename__ = 'risk_events'
+
+    id = Column(Integer, primary_key=True)
+    event_type = Column(String, nullable=False)  # KILL_SWITCH, LIMIT_BREACH
+    reason = Column(String, nullable=False)
+    metric_value = Column(Numeric(20, 2))
+    limit_value = Column(Numeric(20, 2))
+    timestamp = Column(DateTime, nullable=False)
+
+# Usage
+session.add(Trade(
+    symbol="BTCUSDT",
+    side="BUY",
+    size=Decimal("0.1"),
+    price=Decimal("45234.50"),
+    commission=Decimal("4.52"),
+    order_id="12345",
+    trade_id="67890",
+    timestamp=datetime.now()
+))
+session.commit()
 ```
 
 ## Prohibited Actions
@@ -388,6 +894,8 @@ logger.warning(
 - **NEVER modify CLAUDE.md or ROADMAP.md without explicit user request** - these are protected
 - **NEVER skip the kill switch test** - it must be verified to work before live trading
 - **NEVER proceed past Phase 6 gate without meeting criteria** - paper trading win rate >50% required
+- **NEVER use hardcoded API credentials** - always use environment variables
+- **NEVER disable risk checks** - even for testing, use test fixtures instead
 
 ## Phase Gate Requirements
 
@@ -406,27 +914,36 @@ The project uses a strict phase-gate methodology. You CANNOT proceed to the next
 - [ ] Engine runs 24h without crashes
 - [ ] Risk limits enforced correctly
 - [ ] Signal generation validated manually
+- [ ] Kill switch tested and functional
 
 ### Gate 3→4: API Server Working
-- [ ] Kill switch tested and functional
-- [ ] Can control engine via API
+- [ ] Kill switch tested via API
+- [ ] Can control engine via API (start/stop/kill)
 - [ ] Database persistence working
+- [ ] All trades logged to database
 
 ### Gate 4→5: UI Complete
 - [ ] Real-time data displayed accurately
 - [ ] All controls functional
+- [ ] Kill switch button works
+- [ ] P&L tracking accurate
 
 ### Gate 5→6: Paper Trading Validated ⚠️ CRITICAL
 - [ ] 60 days of paper trading completed
 - [ ] Win rate >50%
 - [ ] Profit factor >1.0
 - [ ] Confidence that edge exists
+- [ ] Maximum drawdown within limits
+- [ ] Sharpe ratio >0.5
+
 **DO NOT proceed to live trading without meeting these criteria**
 
 ### Gate 6→7: Micro-Capital Tested
 - [ ] 30 days with $100-500 real capital
 - [ ] Break-even or positive
 - [ ] No critical bugs discovered
+- [ ] Risk limits working correctly
+- [ ] Kill switch verified with real money
 
 ## Progress Tracking
 
@@ -437,6 +954,8 @@ Current implementation should track:
 - Current week (of 24)
 - Next milestone target
 - Any blockers
+- Test results and coverage
+- Risk metric compliance
 
 ## Documentation References
 
@@ -449,3 +968,76 @@ Detailed project documentation is available in /Users/adamoates/Documents/trader
 - `mft-dev-log.md` - Template for tracking daily/weekly progress
 
 Reference these documents when implementing specific components.
+
+## Performance Targets
+
+### Latency Requirements
+- **Message Processing**: <5ms per L2 update
+- **Order Placement**: <20ms from signal to order submission
+- **Total Signal-to-Execution**: <50ms sustained
+- **WebSocket Reconnection**: <5s
+
+### Reliability Targets
+- **Uptime**: 99.9% during market hours
+- **Data Loss**: 0 trades unlogged
+- **Order Success Rate**: >98%
+- **WebSocket Stability**: <3 disconnects per 24h
+
+### Testing Targets
+- **Code Coverage**: >80% overall, 100% for risk code
+- **Test Execution**: <30s for unit tests, <2min for integration
+- **CI Pipeline**: <5min total
+
+## Security Guidelines
+
+### API Key Management
+```python
+# CORRECT: Use environment variables
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+api_key = os.getenv("BINANCE_API_KEY")
+api_secret = os.getenv("BINANCE_API_SECRET")
+
+# WRONG: Never hardcode
+api_key = "abc123..."  # ❌ NEVER DO THIS
+```
+
+### Database Credentials
+```python
+# CORRECT: Environment variables
+db_url = os.getenv("DATABASE_URL")
+
+# WRONG: Hardcoded
+db_url = "postgresql://user:pass@localhost/db"  # ❌ NEVER
+```
+
+### Secret Scanning
+- CI pipeline runs secret detection on every commit
+- Pre-commit hooks prevent accidental commits of .env files
+- Never commit credentials to version control
+
+## Deployment Checklist
+
+Before deploying to production:
+- [ ] All tests passing (100% success rate)
+- [ ] Code coverage >80%
+- [ ] No secrets in code
+- [ ] Environment variables configured
+- [ ] Database migrations applied
+- [ ] Kill switch tested
+- [ ] Monitoring alerts configured (MCP Slack/Discord)
+- [ ] Backup strategy in place
+- [ ] Rollback plan documented
+- [ ] Paper trading validated (60 days)
+- [ ] Micro-capital tested (30 days)
+
+## Support and Resources
+
+- **GitHub Repository**: https://github.com/adamoates/Trade-Engine
+- **Issues**: https://github.com/adamoates/Trade-Engine/issues
+- **Documentation**: `/docs` directory
+- **External Docs**: `/Users/adamoates/Documents/trader/`
+
+For questions about Claude Code itself, use `/help` or visit https://docs.claude.com/en/docs/claude-code
