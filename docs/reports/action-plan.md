@@ -39,26 +39,30 @@ This document tracks improvements based on comprehensive code review feedback.
 ## 🔴 Critical Priorities (Do Now)
 
 ### 1. Float Usage Enforcement ⚠️ **CRITICAL**
-**Status**: ✅ **COMPLETED** (PR #23 - 2025-10-30)
+**Status**: ✅ **COMPLETED** (PR #23 + follow-up fixes - 2025-10-30)
 **Why Critical**: Float rounding errors can cause financial losses
 
 **Completed Actions**:
 - ✅ Audit script created (`scripts/audit_float_usage.sh`) with 8 detection patterns
-- ✅ Core trading path (core/, brokers/, alpha_l2_imbalance) fully migrated to Decimal
+- ✅ **Critical trading path 100% clean** (core/, brokers/, alpha_l2_imbalance):
+  - Core types (Position, Signal, Order) use Decimal
+  - All broker adapters (Binance, Kraken, Binance.us) use Decimal
+  - L2 imbalance strategy: prices use Decimal, timestamps use int
+  - Binance.get_ticker_price() returns Decimal (not float)
 - ✅ CI check added: detects float in critical financial code
-- ✅ All core types (Position, Signal, Order) use Decimal
-- ✅ All broker adapters (Binance, Kraken, Binance.us) use Decimal
-- ✅ L2 imbalance strategy uses Decimal
+- ✅ Audit verification: `grep` reports no float in critical path
 
-**Remaining Work** (non-critical):
-- [ ] Services layer still has float usage (signal_normalizer, data aggregator)
-- [ ] Alpha strategies (MACD, RSI, Bollinger) use float (acceptable - not in critical path)
+**Remaining Work** (non-critical, acceptable):
+- [ ] Services layer has float usage (signal_normalizer, data aggregator, backtest metrics)
+  - *Rationale*: Derived metrics (Sharpe ratio, z-scores) don't require Decimal precision
+- [ ] Alpha strategies (MACD, RSI, Bollinger) use float for indicators
+  - *Rationale*: Technical indicators are not in critical execution path
 - [ ] Add pre-commit hook (recommended but not blocking)
 
-**Note**: CI enforces Decimal in **critical trading path only**. Services/alpha strategies allowed to use float for derived metrics (Sharpe ratio, z-scores, etc.)
+**Note**: CI enforces Decimal in **critical trading path only** (core, brokers, L2 strategy). Non-critical code allowed to use float for performance/convenience.
 
 **Owner**: Completed
-**Completed**: 2025-10-30 (PR #23)
+**Completed**: 2025-10-30 (PR #23 + commit 93d8ddf)
 
 ---
 

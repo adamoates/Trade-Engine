@@ -89,9 +89,9 @@ class L2ImbalanceStrategy(Strategy):
         # State tracking
         self.in_position = False
         self.position_side: Optional[str] = None  # "long" | "short"
-        self.entry_time: Optional[float] = None
+        self.entry_time: Optional[int] = None  # Unix timestamp in seconds
         self.entry_price: Optional[Decimal] = None
-        self.last_signal_time: float = 0.0
+        self.last_signal_time: int = 0  # Unix timestamp in seconds
 
         # Signal history for cooldown
         self.signal_count = 0
@@ -149,7 +149,7 @@ class L2ImbalanceStrategy(Strategy):
         # Check for entry conditions if not in position
         if not self.in_position:
             # Enforce cooldown
-            time_since_last_signal = time.time() - self.last_signal_time
+            time_since_last_signal = int(time.time()) - self.last_signal_time
             if time_since_last_signal < self.config.cooldown_seconds:
                 return signals
 
@@ -273,7 +273,7 @@ class L2ImbalanceStrategy(Strategy):
             pnl_pct = ((self.entry_price - current_price) / self.entry_price) * Decimal("100")
 
         # Time stop
-        hold_time = time.time() - self.entry_time
+        hold_time = int(time.time()) - self.entry_time
         if hold_time > self.config.max_hold_time_seconds:
             logger.info(f"Time stop triggered: {hold_time:.1f}s > {self.config.max_hold_time_seconds}s")
             return self._generate_exit_signal(current_price, "time_stop")
@@ -334,9 +334,9 @@ class L2ImbalanceStrategy(Strategy):
         """
         self.in_position = True
         self.position_side = side
-        self.entry_time = time.time()
+        self.entry_time = int(time.time())
         self.entry_price = entry_price
-        self.last_signal_time = time.time()
+        self.last_signal_time = int(time.time())
         self.signal_count += 1
 
         logger.info(
@@ -360,7 +360,7 @@ class L2ImbalanceStrategy(Strategy):
         self.position_side = None
         self.entry_time = None
         self.entry_price = None
-        self.last_signal_time = 0.0
+        self.last_signal_time = 0
         self.signal_count = 0
 
         logger.info(f"L2ImbalanceStrategy reset: {self.symbol}")
