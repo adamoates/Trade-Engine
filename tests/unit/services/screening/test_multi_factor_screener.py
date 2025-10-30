@@ -4,16 +4,14 @@ Tests for MultiFactorScreener.
 Tests market cap filtering and signal matching logic.
 """
 
-from decimal import Decimal
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock
+from decimal import Decimal
+from unittest.mock import patch
+
 import pytest
 
-from trade_engine.services.screening.multi_factor_screener import (
-    MultiFactorScreener,
-    ScreenerMatch
-)
 from trade_engine.services.data.types import OHLCV, DataSourceType
+from trade_engine.services.screening.multi_factor_screener import MultiFactorScreener
 
 
 @pytest.fixture
@@ -115,7 +113,7 @@ class TestMarketCapFiltering:
         # Mock market cap above threshold ($1B > $500M)
         with patch.object(screener, '_fetch_market_cap', return_value=Decimal("1_000_000_000")):
             with patch.object(screener.data_source, 'fetch_ohlcv', return_value=mock_candles):
-                result = screener._scan_symbol(
+                _ = screener._scan_symbol(
                     symbol="GOOD",
                     min_gain_percent=Decimal("5.0"),
                     min_volume_ratio=Decimal("2.0"),

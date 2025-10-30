@@ -115,8 +115,8 @@ class MultiFactorScreener:
 
         # Alpha strategies for signal generation
         self.ma_crossover = MovingAverageCrossoverAlpha(
-            short_period=ma_short,
-            long_period=ma_long
+            fast_period=ma_short,
+            slow_period=ma_long
         )
         self.macd = MACDAlpha()
         self.rsi = RSIDivergenceAlpha(rsi_period=rsi_period)
