@@ -37,6 +37,9 @@ from trade_engine.services.data.web3_signals import Web3DataSource, GasData, Liq
 from trade_engine.services.data.signal_normalizer import SignalNormalizer
 from trade_engine.core.logging_config import configure_logging, get_logger
 
+# Module-level logger (configure_logging() must be called in main() first)
+logger = get_logger(__name__)
+
 
 @dataclass
 class L2OrderBook:
