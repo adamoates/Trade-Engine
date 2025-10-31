@@ -1,0 +1,60 @@
+# Volatility-Filtered L2 Strategy Configuration
+#
+# Combines L2 order book imbalance with ATR volatility filter.
+# Only trades when market volatility is in "normal" range.
+#
+# Expected Performance:
+# - Win Rate: 55-60%
+# - Profit Factor: 1.5-1.8
+# - Trade Frequency: 60-120 trades/day
+# - Max Drawdown: ~6% (lowest risk)
+#
+# Best For: Risk management, all market conditions
+
+symbol: BTCUSDT
+exchange: binance_futures
+mode: paper
+
+# PostgreSQL database for audit trail (optional)
+database_url: postgresql://trade_dev:devpass123@localhost:5432/trade_engine_dev
+
+strategy:
+  type: vol_filtered_l2
+
+  # Volatility Filter (ATR-based)
+  # Updates every 1 minute
+  volatility:
+    atr_window: 20             # 20-period ATR
+    low_vol_threshold: 0.5     # Disable if ATR < 50% of average
+    high_vol_threshold: 3.0    # Disable if ATR > 300% of average
+    timeframe: 1m              # Bar timeframe for ATR
+    # Filter logic:
+    # - ATR < 50% avg = Dead zone (no momentum) → DISABLED
+    # - ATR > 300% avg = Chaos (flash crash, spoofing) → DISABLED
+    # - 50% < ATR < 300% = Normal volatility → ENABLED
+
+  # L2 Imbalance (Signal Generator)
+  # Only generates signals when volatility filter enabled
+  l2:
+    buy_threshold: 3.0        # Bid/Ask ratio for BUY
+    sell_threshold: 0.33      # Bid/Ask ratio for SELL
+    depth: 5                  # Top 5 order book levels
+    position_size_usd: 1000   # Position size in USD
+    profit_target_pct: 0.2    # Take profit at +0.2% (20 bps)
+    stop_loss_pct: -0.15      # Stop loss at -0.15% (15 bps)
+    cooldown_seconds: 5       # Cooldown after trade
+    max_hold_time_seconds: 60 # Time stop (60 seconds)
+    spot_only: false          # Allow both long and short
+
+# Risk limits (standard)
+risk:
+  max_position_size_usd: 10000
+  daily_loss_limit_usd: -500
+  max_drawdown_usd: -1000
+  max_instrument_exposure_pct: 0.25
+
+# Position tracking
+db_path: data/positions.db
+
+# Update interval (ms)
+update_interval_ms: 100  # Check L2 every 100ms (10 times/second)

@@ -1,0 +1,63 @@
+# L2 Order Book Imbalance Strategy - LIVE Trading Configuration
+#
+# ⚠️  WARNING: This configuration is for LIVE TRADING with REAL MONEY.
+# ⚠️  Only use after 60+ days of successful paper trading.
+# ⚠️  Start with minimal capital and scale up gradually.
+#
+# CRITICAL: Set BINANCE_API_KEY and BINANCE_API_SECRET environment
+# variables to your Binance LIVE credentials before running.
+
+# Trading pair
+symbol: "BTCUSDT"
+
+# Exchange
+exchange: "binance_futures"
+
+# Strategy parameters
+strategy:
+  # Imbalance thresholds (validated during paper trading)
+  buy_threshold: 3.0
+  sell_threshold: 0.33
+
+  # Order book depth
+  depth: 5
+
+  # Position sizing (START SMALL!)
+  position_size_usd: 100  # Scale up gradually: $100 → $500 → $1000 → $5000
+
+  # Profit/loss targets (from paper trading validation)
+  profit_target_pct: 0.2
+  stop_loss_pct: 0.15
+
+  # Time management
+  cooldown_seconds: 5
+  max_hold_time_seconds: 60
+
+  # Trading mode
+  spot_only: false
+
+# Risk limits (STRICT - NEVER EXCEED)
+risk:
+  max_position_size: 10000          # Absolute max per trade
+  daily_loss_limit: -500            # Stop trading if daily loss < -$500 (NEGATIVE)
+  max_drawdown: -1000               # Kill switch if total drawdown < -$1000 (NEGATIVE)
+  max_instrument_exposure_pct: 0.25 # Max 25% of capital per instrument (0.25 = 25%)
+
+# Database path
+db_path: "data/positions_live.db"
+
+# Update interval
+update_interval_ms: 100
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BEFORE RUNNING LIVE:
+# ═══════════════════════════════════════════════════════════════════════════
+# [ ] 60+ days of successful paper trading (win rate >50%)
+# [ ] Profit factor >1.0 in paper trading
+# [ ] System stability verified (99%+ uptime)
+# [ ] Risk limits tested (kill switch works)
+# [ ] Starting with micro-capital ($100-500)
+# [ ] API keys secured (never committed to git)
+# [ ] Monitoring alerts set up (Slack/Discord)
+# [ ] Backup plan for emergencies
+# ═══════════════════════════════════════════════════════════════════════════

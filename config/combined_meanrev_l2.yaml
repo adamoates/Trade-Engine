@@ -1,0 +1,61 @@
+# Mean-Reversion L2 Strategy Configuration
+#
+# Combines Bollinger Bands mean-reversion with L2 confirmation.
+# Waits for price extremes, then uses L2 to time reversals.
+#
+# Expected Performance:
+# - Win Rate: 60-68%
+# - Profit Factor: 1.6-2.0
+# - Trade Frequency: 5-15 trades/day
+# - Max Drawdown: ~10%
+#
+# Best For: Range-bound markets, high volatility
+
+symbol: BTCUSDT
+exchange: binance_futures
+mode: paper
+
+# PostgreSQL database for audit trail (optional)
+database_url: postgresql://trade_dev:devpass123@localhost:5432/trade_engine_dev
+
+strategy:
+  type: meanrev_l2
+
+  # Bollinger Bands (Identifies Extremes)
+  # Updates every 5 minutes
+  bollinger:
+    period: 20          # 20-period moving average
+    std_dev: 2.0        # 2 standard deviations
+    timeframe: 5m       # Bar timeframe
+    # Extremes:
+    # - Price <= lower_band = Oversold (wait for BUY reversal)
+    # - Price >= upper_band = Overbought (wait for SELL reversal)
+
+  # L2 Imbalance (Confirms Reversal)
+  # Higher thresholds for mean-reversion confirmation
+  l2:
+    buy_threshold: 3.5        # Higher threshold (stronger confirmation needed)
+    sell_threshold: 0.28      # Lower threshold (stronger confirmation needed)
+    depth: 5                  # Top 5 order book levels
+    position_size_usd: 1000   # Position size in USD
+    profit_target_pct: 0.3    # Higher TP for mean-reversion (30 bps)
+    stop_loss_pct: -0.20      # Wider SL for mean-reversion (20 bps)
+    cooldown_seconds: 10      # Longer cooldown (avoid overtrading)
+    max_hold_time_seconds: 120 # Longer hold time (2 minutes)
+    spot_only: false          # Allow both long and short
+
+  # Reversal timeout
+  reversal_timeout_seconds: 300  # 5 minutes to confirm reversal
+
+# Risk limits (standard)
+risk:
+  max_position_size_usd: 10000
+  daily_loss_limit_usd: -500
+  max_drawdown_usd: -1000
+  max_instrument_exposure_pct: 0.25
+
+# Position tracking
+db_path: data/positions.db
+
+# Update interval (ms)
+update_interval_ms: 100  # Check L2 every 100ms

@@ -1,0 +1,51 @@
+# L2 Order Book Imbalance Strategy - Paper Trading Configuration
+#
+# This configuration is for PAPER TRADING (testnet) only.
+# Use this to validate the strategy before risking real capital.
+#
+# CRITICAL: Set BINANCE_API_KEY and BINANCE_API_SECRET environment
+# variables to your Binance TESTNET credentials before running.
+
+# Trading pair
+symbol: "BTCUSDT"
+
+# Exchange (currently only binance_futures supported)
+exchange: "binance_futures"
+
+# Strategy parameters
+strategy:
+  # Imbalance thresholds
+  buy_threshold: 3.0    # Buy when bid/ask ratio > 3.0x
+  sell_threshold: 0.33  # Sell when bid/ask ratio < 0.33x (1/3)
+
+  # Order book depth to analyze
+  depth: 5  # Top 5 levels per side
+
+  # Position sizing
+  position_size_usd: 100  # Start small for paper trading
+
+  # Profit/loss targets
+  profit_target_pct: 0.2   # 20 basis points (0.2%)
+  stop_loss_pct: 0.15      # 15 basis points (0.15%)
+
+  # Time management
+  cooldown_seconds: 5           # Wait 5s between signals
+  max_hold_time_seconds: 60     # Time stop after 60s
+
+  # Trading mode
+  spot_only: false  # false = futures (can long + short)
+
+# Risk limits (CRITICAL - DO NOT EXCEED)
+risk:
+  max_position_size: 1000           # Max $1000 per trade
+  daily_loss_limit: -50             # Stop if daily loss < -$50 (NEGATIVE)
+  max_drawdown: -100                # Kill switch if drawdown < -$100 (NEGATIVE)
+  max_instrument_exposure_pct: 0.25 # Max 25% of capital per instrument (0.25 = 25%)
+
+# Database path for position tracking
+db_path: "data/positions_paper.db"
+
+# Update interval (milliseconds)
+# 100ms = 10 checks per second
+# Lower = more responsive, higher = less CPU
+update_interval_ms: 100

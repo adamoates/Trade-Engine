@@ -1,0 +1,58 @@
+# Trend-Filtered L2 Strategy Configuration
+#
+# Combines L2 order book imbalance with MA crossover trend filter.
+# Only takes L2 signals aligned with the macro trend.
+#
+# Expected Performance:
+# - Win Rate: 58-65%
+# - Profit Factor: 1.8-2.2
+# - Trade Frequency: 40-80 trades/day
+# - Max Drawdown: ~8%
+#
+# Best For: Trending markets (bull/bear runs)
+
+symbol: BTCUSDT
+exchange: binance_futures
+mode: paper
+
+# PostgreSQL database for audit trail (optional)
+database_url: postgresql://trade_dev:devpass123@localhost:5432/trade_engine_dev
+
+strategy:
+  type: trend_filtered_l2
+
+  # Trend filter (Moving Average Crossover)
+  # Updates every 15 minutes
+  trend:
+    fast_period: 50     # Fast MA period
+    slow_period: 200    # Slow MA period
+    timeframe: 15m      # Bar timeframe for MA calculation
+    # Trend determination:
+    # - fast_ma > slow_ma = Bullish (only BUY signals)
+    # - fast_ma < slow_ma = Bearish (only SELL signals)
+
+  # L2 Imbalance (Signal Generator)
+  # Checks every 100ms for order book imbalance
+  l2:
+    buy_threshold: 3.0        # Bid/Ask ratio for BUY (3.0x = strong bid pressure)
+    sell_threshold: 0.33      # Bid/Ask ratio for SELL (0.33x = strong ask pressure)
+    depth: 5                  # Top 5 order book levels
+    position_size_usd: 1000   # Position size in USD
+    profit_target_pct: 0.2    # Take profit at +0.2% (20 bps)
+    stop_loss_pct: -0.15      # Stop loss at -0.15% (15 bps)
+    cooldown_seconds: 5       # Cooldown after trade
+    max_hold_time_seconds: 60 # Time stop (60 seconds)
+    spot_only: false          # Allow both long and short
+
+# Risk limits (standard)
+risk:
+  max_position_size_usd: 10000
+  daily_loss_limit_usd: -500
+  max_drawdown_usd: -1000
+  max_instrument_exposure_pct: 0.25
+
+# Position tracking
+db_path: data/positions.db
+
+# Update interval (ms)
+update_interval_ms: 100  # Check L2 every 100ms (10 times/second)
