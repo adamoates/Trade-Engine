@@ -77,11 +77,50 @@ class TestFuturesRiskManager:
     def test_calculate_liquidation_price_high_leverage(self, risk_manager):
         """Test liquidation price with higher leverage."""
         liq_price = risk_manager.calculate_liquidation_price(
-            entry_price=Decimal("50000"), leverage=10, side="long"
+            entry_price=Decimal("50000"),
+            leverage=10,
+            side="long",
+            maintenance_margin_rate=Decimal("0.004"),
         )
 
         # Long liq = 50000 * (1 - 0.1 + 0.004) = 50000 * 0.904 = 45200
         assert liq_price == Decimal("45200.00")
+
+    def test_get_mmr_for_symbol_btc(self, risk_manager):
+        """Test getting MMR for BTC symbol."""
+        mmr = risk_manager.get_mmr_for_symbol("BTCUSDT")
+        assert mmr == Decimal("0.004")  # 0.4% for BTC
+
+    def test_get_mmr_for_symbol_eth(self, risk_manager):
+        """Test getting MMR for ETH symbol."""
+        mmr = risk_manager.get_mmr_for_symbol("ETHUSDT")
+        assert mmr == Decimal("0.005")  # 0.5% for ETH
+
+    def test_get_mmr_for_symbol_unknown(self, risk_manager):
+        """Test getting MMR for unknown symbol uses default."""
+        mmr = risk_manager.get_mmr_for_symbol("XYZUSDT")
+        assert mmr == Decimal("0.010")  # 1.0% default
+
+    def test_calculate_liquidation_price_with_symbol(self, risk_manager):
+        """Test liquidation price using symbol-specific MMR."""
+        liq_price = risk_manager.calculate_liquidation_price(
+            entry_price=Decimal("50000"),
+            leverage=10,
+            side="long",
+            symbol="BTCUSDT",
+        )
+
+        # Long liq with BTC MMR = 50000 * (1 - 0.1 + 0.004) = 50000 * 0.904 = 45200
+        assert liq_price == Decimal("45200.00")
+
+    def test_calculate_liquidation_price_default_mmr(self, risk_manager):
+        """Test liquidation price with new default MMR."""
+        liq_price = risk_manager.calculate_liquidation_price(
+            entry_price=Decimal("50000"), leverage=10, side="long"
+        )
+
+        # Long liq with default MMR = 50000 * (1 - 0.1 + 0.01) = 50000 * 0.91 = 45500
+        assert liq_price == Decimal("45500.00")
 
     def test_check_margin_health_healthy(self, risk_manager):
         """Test margin health check with healthy margin."""

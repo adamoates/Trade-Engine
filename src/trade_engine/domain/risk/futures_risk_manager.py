@@ -27,6 +27,7 @@ class FuturesRiskManager(RiskManager):
         config: Dict[str, Any],
         max_leverage: int = 5,
         liquidation_buffer: Decimal = Decimal("0.15"),  # 15% safety margin
+        maintenance_margin_rates: Optional[Dict[str, Decimal]] = None,
     ):
         """
         Initialize futures risk manager.
@@ -35,12 +36,21 @@ class FuturesRiskManager(RiskManager):
             config: Full configuration dict (passed to base RiskManager)
             max_leverage: Maximum allowed leverage (1-125)
             liquidation_buffer: Minimum margin ratio before forced close
+            maintenance_margin_rates: Optional dict of symbol -> MMR (e.g., {"BTCUSDT": Decimal("0.004")})
         """
         super().__init__(config)
 
         self.max_leverage = max_leverage
         self.liquidation_buffer = liquidation_buffer
         self.kill_switch_active = False
+
+        # Default maintenance margin rates per symbol
+        self.mmr_rates = maintenance_margin_rates or {
+            "BTCUSDT": Decimal("0.004"),  # 0.4% for BTC
+            "ETHUSDT": Decimal("0.005"),  # 0.5% for ETH
+            "BNBUSDT": Decimal("0.010"),  # 1.0% for BNB and other alts
+        }
+        self.default_mmr = Decimal("0.010")  # 1.0% default for unknown symbols
 
         logger.info(
             f"FuturesRiskManager initialized | "
@@ -74,12 +84,25 @@ class FuturesRiskManager(RiskManager):
 
         return RiskCheckResult(passed=True)
 
+    def get_mmr_for_symbol(self, symbol: str) -> Decimal:
+        """
+        Get maintenance margin rate for a symbol.
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+
+        Returns:
+            Maintenance margin rate as Decimal
+        """
+        return self.mmr_rates.get(symbol, self.default_mmr)
+
     def calculate_liquidation_price(
         self,
         entry_price: Decimal,
         leverage: int,
         side: str,
-        maintenance_margin_rate: Decimal = Decimal("0.004"),  # 0.4% for BTC
+        symbol: Optional[str] = None,
+        maintenance_margin_rate: Optional[Decimal] = None,
     ) -> Decimal:
         """
         Calculate liquidation price for a leveraged position.
@@ -92,9 +115,10 @@ class FuturesRiskManager(RiskManager):
 
         Args:
             entry_price: Entry price
-            leverage: Position leverage
-            side: "long" or "short"
-            maintenance_margin_rate: Exchange MMR (varies by pair)
+            leverage: Leverage multiplier
+            side: "long"/"buy" or "short"/"sell"
+            symbol: Trading pair (optional, uses symbol-specific MMR if provided)
+            maintenance_margin_rate: Override MMR (optional, uses symbol default if not provided)
 
         Returns:
             Liquidation price
@@ -103,21 +127,31 @@ class FuturesRiskManager(RiskManager):
             >>> calculate_liquidation_price(
             ...     entry_price=Decimal("50000"),
             ...     leverage=5,
-            ...     side="long"
+            ...     side="long",
+            ...     symbol="BTCUSDT"
             ... )
             Decimal("40200.00")  # -19.6% from entry
         """
+        # Determine MMR: explicit > symbol-specific > default
+        if maintenance_margin_rate is None:
+            if symbol:
+                mmr = self.get_mmr_for_symbol(symbol)
+            else:
+                mmr = self.default_mmr
+        else:
+            mmr = maintenance_margin_rate
+
         leverage_factor = Decimal("1") / Decimal(str(leverage))
 
         if side.lower() in ("long", "buy"):
             # Long liquidation: entry * (1 - 1/leverage + mmr)
             liq_price = entry_price * (
-                Decimal("1") - leverage_factor + maintenance_margin_rate
+                Decimal("1") - leverage_factor + mmr
             )
         else:
             # Short liquidation: entry * (1 + 1/leverage - mmr)
             liq_price = entry_price * (
-                Decimal("1") + leverage_factor - maintenance_margin_rate
+                Decimal("1") + leverage_factor - mmr
             )
 
         return liq_price.quantize(Decimal("0.01"))

@@ -5,6 +5,7 @@ Centralizes position lifecycle management for futures trading.
 """
 
 from decimal import Decimal
+from datetime import datetime, timezone
 from typing import Dict, Optional, Any
 from loguru import logger
 
@@ -46,6 +47,11 @@ class PositionManager:
         self.risk = risk_manager
         self.funding = funding_service
         self.db = database
+
+        # Track realized P&L for current trading session
+        self.session_realized_pnl = Decimal("0")
+        self.daily_realized_pnl = Decimal("0")
+        self.last_reset_time = datetime.now(timezone.utc)
 
         logger.info("Position manager initialized")
 
@@ -220,12 +226,12 @@ class PositionManager:
                 logger.warning("Reducing positions due to low margin")
                 self._reduce_largest_position()
 
-            # Log PnL snapshot
+            # Log PnL snapshot with realized P&L
             self.db.log_pnl_snapshot(
                 broker=self.broker.__class__.__name__,
                 balance=balance,
                 unrealized_pnl=total_unrealized,
-                realized_pnl=Decimal("0"),  # Note: Realized P&L tracking enhancement (GitHub issue #TBD)
+                realized_pnl=self.daily_realized_pnl,
                 margin_ratio=margin_check.get("margin_ratio"),
                 open_positions=len(positions),
             )
@@ -259,8 +265,18 @@ class PositionManager:
             pos = positions[symbol]
             exit_price = self.broker.get_ticker_price(symbol)
 
+            # Calculate realized P&L
+            realized_pnl = pos.unrealized_pnl if pos.unrealized_pnl else Decimal("0")
+
             # Close on exchange
             self.broker.close_all(symbol)
+
+            # Update realized P&L tracking
+            self.session_realized_pnl += realized_pnl
+            self.daily_realized_pnl += realized_pnl
+
+            # Check if we need to reset daily P&L (new UTC day)
+            self._check_daily_reset()
 
             # Log to database
             self.db.close_position(
@@ -270,9 +286,18 @@ class PositionManager:
                 exit_reason=reason,
             )
 
-            logger.info(f"Position closed | symbol={symbol} | pnl={pos.unrealized_pnl}")
+            logger.info(
+                f"Position closed | symbol={symbol} | "
+                f"realized_pnl={realized_pnl} | "
+                f"daily_total={self.daily_realized_pnl}"
+            )
 
-            return {"success": True, "exit_price": exit_price, "pnl": pos.unrealized_pnl}
+            return {
+                "success": True,
+                "exit_price": exit_price,
+                "realized_pnl": realized_pnl,
+                "daily_realized_pnl": self.daily_realized_pnl,
+            }
 
         except Exception as e:
             logger.error(f"Failed to close position: {e}", exc_info=True)
@@ -334,3 +359,27 @@ class PositionManager:
 
         except Exception as e:
             logger.error(f"Failed to reduce position: {e}", exc_info=True)
+
+    def _check_daily_reset(self) -> None:
+        """Reset daily P&L if we've moved to a new UTC day."""
+        now = datetime.now(timezone.utc)
+        if now.date() > self.last_reset_time.date():
+            logger.info(
+                f"Daily P&L reset | previous_day={self.daily_realized_pnl} | "
+                f"session_total={self.session_realized_pnl}"
+            )
+            self.daily_realized_pnl = Decimal("0")
+            self.last_reset_time = now
+
+    def get_realized_pnl(self) -> Dict[str, Decimal]:
+        """
+        Get current realized P&L statistics.
+
+        Returns:
+            Dict with session_pnl and daily_pnl
+        """
+        return {
+            "session_pnl": self.session_realized_pnl,
+            "daily_pnl": self.daily_realized_pnl,
+            "last_reset": self.last_reset_time,
+        }
