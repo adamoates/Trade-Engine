@@ -1,5 +1,16 @@
 
+#################################################################################
+# DEPRECATED: Use pyproject.toml as the single source of truth
+################################################################################
+# This file is kept for legacy compatibility only.
+# All dependencies are now properly declared in pyproject.toml following PEP 621.
 #
+# To install dependencies, use:
+#   pip install -e ".[dev,api,database]"
+#
+# This file may be removed in a future release.
+################################################################################
+
 #   - NO API frameworks (not needed until Phase 3)
 #   - NO database libraries (not needed until Phase 2)
 #   - NO frontend libraries (not needed until Phase 4)
