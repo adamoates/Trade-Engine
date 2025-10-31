@@ -226,6 +226,51 @@ class PostgresDatabase:
                     ON risk_events(event_type);
                 """)
 
+                # Create funding_events table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS funding_events (
+                        id SERIAL PRIMARY KEY,
+                        symbol VARCHAR(20) NOT NULL,
+                        broker VARCHAR(50) NOT NULL,
+                        funding_rate NUMERIC(10, 8) NOT NULL,
+                        position_size NUMERIC(20, 8) NOT NULL,
+                        notional_value NUMERIC(20, 2) NOT NULL,
+                        funding_payment NUMERIC(20, 2) NOT NULL,
+                        timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        notes TEXT
+                    );
+                """)
+
+                # Index for funding time-series queries
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_funding_timestamp
+                    ON funding_events(timestamp DESC);
+                """)
+
+                # Create pnl_snapshots table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS pnl_snapshots (
+                        id SERIAL PRIMARY KEY,
+                        broker VARCHAR(50) NOT NULL,
+                        strategy VARCHAR(100),
+                        balance NUMERIC(20, 2) NOT NULL,
+                        unrealized_pnl NUMERIC(20, 2) DEFAULT 0,
+                        realized_pnl NUMERIC(20, 2) DEFAULT 0,
+                        total_pnl NUMERIC(20, 2) NOT NULL,
+                        equity NUMERIC(20, 2) NOT NULL,
+                        margin_ratio NUMERIC(10, 4),
+                        open_positions INTEGER DEFAULT 0,
+                        snapshot_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        notes TEXT
+                    );
+                """)
+
+                # Index for equity curve queries
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_pnl_time
+                    ON pnl_snapshots(snapshot_time DESC);
+                """)
+
                 logger.info("Database schema initialized successfully")
 
     def _mask_url(self, url: str) -> str:
@@ -822,3 +867,170 @@ class PostgresDatabase:
                             snap[field] = Decimal(str(snap[field]))
 
                 return snapshots
+
+    def log_funding_event(
+        self,
+        symbol: str,
+        broker: str,
+        funding_rate: Decimal,
+        position_size: Decimal,
+        notional_value: Decimal,
+        funding_payment: Decimal,
+        notes: Optional[str] = None,
+    ) -> None:
+        """
+        Log a funding payment event.
+
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+            broker: Broker name
+            funding_rate: Funding rate (e.g., 0.0001)
+            position_size: Position size in base currency
+            notional_value: Position notional value
+            funding_payment: Funding payment amount (positive = cost, negative = income)
+            notes: Optional notes
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO funding_events
+                    (symbol, broker, funding_rate, position_size,
+                     notional_value, funding_payment, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        symbol,
+                        broker,
+                        str(funding_rate),
+                        str(position_size),
+                        str(notional_value),
+                        str(funding_payment),
+                        notes,
+                    ),
+                )
+
+        logger.info(
+            f"Funding event logged | symbol={symbol} | "
+            f"rate={funding_rate} | payment={funding_payment}"
+        )
+
+    def log_pnl_snapshot(
+        self,
+        broker: str,
+        balance: Decimal,
+        unrealized_pnl: Decimal,
+        realized_pnl: Decimal,
+        margin_ratio: Optional[Decimal] = None,
+        open_positions: int = 0,
+        strategy: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> None:
+        """
+        Log a P&L snapshot for analytics.
+
+        Args:
+            broker: Broker name
+            balance: Account balance
+            unrealized_pnl: Unrealized P&L
+            realized_pnl: Realized P&L
+            margin_ratio: Margin ratio (optional)
+            open_positions: Number of open positions
+            strategy: Strategy name (optional)
+            notes: Optional notes
+        """
+        total_pnl = realized_pnl + unrealized_pnl
+        equity = balance + unrealized_pnl
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO pnl_snapshots
+                    (broker, strategy, balance, unrealized_pnl, realized_pnl,
+                     total_pnl, equity, margin_ratio, open_positions, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        broker,
+                        strategy,
+                        str(balance),
+                        str(unrealized_pnl),
+                        str(realized_pnl),
+                        str(total_pnl),
+                        str(equity),
+                        str(margin_ratio) if margin_ratio else None,
+                        open_positions,
+                        notes,
+                    ),
+                )
+
+        logger.debug(
+            f"PnL snapshot logged | equity={equity} | "
+            f"pnl={total_pnl} | positions={open_positions}"
+        )
+
+    def get_funding_history(
+        self, symbol: Optional[str] = None, broker: Optional[str] = None, days: int = 7
+    ) -> List[Dict]:
+        """
+        Get funding payment history.
+
+        Args:
+            symbol: Filter by symbol (optional)
+            broker: Filter by broker (optional)
+            days: Number of days to look back (default 7)
+
+        Returns:
+            List of funding event dicts
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                query = """
+                    SELECT * FROM funding_events
+                    WHERE timestamp >= NOW() - INTERVAL '1 day' * %s
+                """
+                params: List = [days]
+
+                if symbol:
+                    query += " AND symbol = %s"
+                    params.append(symbol)
+
+                if broker:
+                    query += " AND broker = %s"
+                    params.append(broker)
+
+                query += " ORDER BY timestamp DESC"
+
+                cur.execute(query, params)
+                return cur.fetchall()
+
+    def get_equity_curve(
+        self, broker: Optional[str] = None, days: int = 30
+    ) -> List[Dict]:
+        """
+        Get equity curve data for charting.
+
+        Args:
+            broker: Filter by broker (optional)
+            days: Number of days to look back (default 30)
+
+        Returns:
+            List of PnL snapshot dicts
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                query = """
+                    SELECT * FROM pnl_snapshots
+                    WHERE snapshot_time >= NOW() - INTERVAL '1 day' * %s
+                """
+                params: List = [days]
+
+                if broker:
+                    query += " AND broker = %s"
+                    params.append(broker)
+
+                query += " ORDER BY snapshot_time ASC"
+
+                cur.execute(query, params)
+                return cur.fetchall()

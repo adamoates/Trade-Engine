@@ -585,8 +585,8 @@ if is_trending_market(bars):
 ## Related Documentation
 
 - [Strategy Interface](../reference/adapters/README.md): Base strategy interface
-- [Backtesting Guide](./backtesting-guide.md): How to backtest strategies
-- [Risk Management](../guides/risk-management.md): Position sizing and risk rules
+- [Risk Management](../../.claude/CLAUDE.md): Position sizing and risk rules (see "Hard Risk Limits" section)
+- [Test Fixtures](../data/fixtures.md): Using historical data for backtesting
 
 ---
 

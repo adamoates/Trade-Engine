@@ -854,7 +854,7 @@ See [how-to-add-adapters.md](./how-to-add-adapters.md) for step-by-step guide.
 
 ### For Adding Health Checks
 
-See [Item #8: Add adapter health check methods](../../docs/reports/action-plan.md) in action plan.
+See [Item #8: Add adapter health check methods](../../reports/action-plan.md) in action plan.
 
 ### For Integration Testing
 

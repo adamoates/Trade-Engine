@@ -311,10 +311,10 @@ response = requests.get(f"{self.base_url}/klines?interval={timeframe}")
 
 ## Related Documentation
 
-- **[CLAUDE.md](../../.claude/CLAUDE.md)**: Project coding standards and patterns
-- **[Architecture](../architecture/)**: System design and component relationships
-- **[Guides](../guides/)**: User guides for various features
-- **[Action Plan](../reports/action-plan.md)**: Infrastructure improvement roadmap
+- **[CLAUDE.md](../../../.claude/CLAUDE.md)**: Project coding standards and patterns
+- **[Architecture](../../architecture/)**: System design and component relationships
+- **[Guides](../../guides/)**: Implementation guides (perpetual futures, etc.)
+- **[Action Plan](../../reports/action-plan.md)**: Infrastructure improvement roadmap
 
 ---
 
