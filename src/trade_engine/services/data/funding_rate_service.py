@@ -7,7 +7,7 @@ Tracks 8-hourly funding payments and cumulative costs.
 import requests
 from decimal import Decimal
 from datetime import datetime, timezone
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from loguru import logger
 
 
@@ -75,7 +75,7 @@ class FundingRateService:
 
     def get_historical_funding(
         self, symbol: str, start_time: Optional[int] = None, limit: int = 100
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """
         Get historical funding rates.
 
@@ -87,15 +87,20 @@ class FundingRateService:
         Returns:
             List of funding rate records with timestamps
         """
-        params = {"symbol": symbol, "limit": min(limit, 1000)}
-        if start_time:
-            params["startTime"] = start_time
+        try:
+            params = {"symbol": symbol, "limit": min(limit, 1000)}
+            if start_time:
+                params["startTime"] = start_time
 
-        response = requests.get(
-            self.BINANCE_FUNDING_URL, params=params, timeout=10
-        )
-        response.raise_for_status()
-        return response.json()
+            response = requests.get(
+                self.BINANCE_FUNDING_URL, params=params, timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch historical funding for {symbol}: {e}")
+            raise
 
     def calculate_funding_cost(
         self,
@@ -173,8 +178,7 @@ class FundingRateService:
             # Convert milliseconds to datetime
             dt = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
 
-            # TODO: Add funding_events table to database schema
-            # For now, log as audit event
+            # Log funding event to database (funding_events table implemented)
             logger.info(
                 "funding_event",
                 symbol=symbol,

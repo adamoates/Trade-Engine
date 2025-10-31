@@ -82,11 +82,14 @@ def main():
     )
 
     if result["success"]:
+        # Convert funding rate to percentage using Decimal arithmetic
+        funding_rate_pct = (result['funding_rate'] * Decimal("100")).quantize(Decimal("0.0001"))
+
         logger.info(
             f"✓ Position opened successfully\n"
             f"  Entry Price: ${result['entry_price']}\n"
             f"  Liquidation Price: ${result['liquidation_price']}\n"
-            f"  Funding Rate: {result['funding_rate']} ({float(result['funding_rate']) * 100:.4f}%)\n"
+            f"  Funding Rate: {result['funding_rate']} ({funding_rate_pct}%)\n"
             f"  Estimated Daily Funding: ${result['estimated_daily_funding']}"
         )
     else:
@@ -104,8 +107,11 @@ def main():
         "BTCUSDT", Decimal("0.001"), result["entry_price"]
     )
 
+    # Convert funding rate to percentage using Decimal arithmetic
+    current_funding_pct = (funding_rate * Decimal("100")).quantize(Decimal("0.0001"))
+
     logger.info(
-        f"  Current Funding Rate: {funding_rate} ({float(funding_rate) * 100:.4f}%)\n"
+        f"  Current Funding Rate: {funding_rate} ({current_funding_pct}%)\n"
         f"  Estimated Daily Cost: ${daily_cost}"
     )
 

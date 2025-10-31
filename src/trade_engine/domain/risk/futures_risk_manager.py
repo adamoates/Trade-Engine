@@ -334,6 +334,5 @@ class FuturesRiskManager(RiskManager):
         """
         logger.critical(f"KILL SWITCH TRIGGERED | reason={reason}")
         self.kill_switch_active = True
-        # TODO: Flatten all positions (handled by PositionManager)
-        # TODO: Cancel all open orders
-        # TODO: Send alerts via MCP (Slack/Discord)
+        # Note: Position flattening handled by PositionManager._emergency_close_all()
+        # Future enhancements: Cancel open orders, send MCP alerts (GitHub issue #TBD)

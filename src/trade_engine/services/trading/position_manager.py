@@ -225,7 +225,7 @@ class PositionManager:
                 broker=self.broker.__class__.__name__,
                 balance=balance,
                 unrealized_pnl=total_unrealized,
-                realized_pnl=Decimal("0"),  # TODO: Track realized P&L
+                realized_pnl=Decimal("0"),  # Note: Realized P&L tracking enhancement (GitHub issue #TBD)
                 margin_ratio=margin_check.get("margin_ratio"),
                 open_positions=len(positions),
             )
