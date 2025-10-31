@@ -23,14 +23,30 @@ from trade_engine.services.trading.position_manager import PositionManager
 
 @dataclass
 class MockPosition:
-    """Mock position object returned by broker."""
+    """Mock position object returned by broker.
+
+    NOTE: Must match the real Position dataclass in src/trade_engine/core/types.py
+    to ensure integration tests catch real-world bugs.
+    """
 
     symbol: str
-    size: Decimal
+    side: str              # "long" | "short"
+    qty: Decimal           # Position size (base currency)
     entry_price: Decimal
     current_price: Decimal
-    unrealized_pnl: Decimal
-    maintenance_margin: Decimal
+    pnl: Decimal           # Unrealized P&L (USD) - renamed from unrealized_pnl
+    pnl_pct: Decimal       # Unrealized P&L (%)
+
+    # Additional fields for futures testing (not in base Position)
+    maintenance_margin: Decimal = Decimal("0")
+    unrealized_pnl: Decimal = Decimal("0")  # Deprecated, use pnl instead
+
+    def __post_init__(self):
+        """Sync unrealized_pnl with pnl for backward compatibility."""
+        if self.unrealized_pnl == Decimal("0") and self.pnl != Decimal("0"):
+            self.unrealized_pnl = self.pnl
+        elif self.pnl == Decimal("0") and self.unrealized_pnl != Decimal("0"):
+            self.pnl = self.unrealized_pnl
 
 
 class TestFuturesSystemIntegration:
@@ -174,10 +190,12 @@ class TestFuturesSystemIntegration:
         mock_broker.positions.return_value = {
             "BTCUSDT": MockPosition(
                 symbol="BTCUSDT",
-                size=Decimal("0.1"),
+                side="long",
+                qty=Decimal("0.1"),
                 entry_price=Decimal("50000"),
                 current_price=Decimal("50500"),
-                unrealized_pnl=Decimal("50"),
+                pnl=Decimal("50"),
+                pnl_pct=Decimal("0.01"),
                 maintenance_margin=Decimal("500"),
             )
         }
@@ -203,10 +221,12 @@ class TestFuturesSystemIntegration:
         mock_broker.positions.return_value = {
             "BTCUSDT": MockPosition(
                 symbol="BTCUSDT",
-                size=Decimal("0.2"),
+                side="long",
+                qty=Decimal("0.2"),
                 entry_price=Decimal("50000"),
                 current_price=Decimal("48000"),
-                unrealized_pnl=Decimal("-400"),
+                pnl=Decimal("-400"),
+                pnl_pct=Decimal("-0.04"),
                 maintenance_margin=Decimal("8500"),  # High maintenance margin
             )
         }
@@ -228,10 +248,12 @@ class TestFuturesSystemIntegration:
         mock_broker.positions.return_value = {
             "BTCUSDT": MockPosition(
                 symbol="BTCUSDT",
-                size=Decimal("0.1"),
+                side="long",
+                qty=Decimal("0.1"),
                 entry_price=Decimal("50000"),
                 current_price=Decimal("51000"),
-                unrealized_pnl=Decimal("100"),
+                pnl=Decimal("100"),
+                pnl_pct=Decimal("0.02"),
                 maintenance_margin=Decimal("500"),
             )
         }
@@ -302,18 +324,22 @@ class TestFuturesSystemIntegration:
         mock_broker.positions.return_value = {
             "BTCUSDT": MockPosition(
                 symbol="BTCUSDT",
-                size=Decimal("0.05"),
+                side="long",
+                qty=Decimal("0.05"),
                 entry_price=Decimal("50000"),
                 current_price=Decimal("50100"),
-                unrealized_pnl=Decimal("5"),
+                pnl=Decimal("5"),
+                pnl_pct=Decimal("0.001"),
                 maintenance_margin=Decimal("250"),
             ),
             "ETHUSDT": MockPosition(
                 symbol="ETHUSDT",
-                size=Decimal("0.5"),
+                side="long",
+                qty=Decimal("0.5"),
                 entry_price=Decimal("3000"),
                 current_price=Decimal("3050"),
-                unrealized_pnl=Decimal("25"),
+                pnl=Decimal("25"),
+                pnl_pct=Decimal("0.0083"),
                 maintenance_margin=Decimal("150"),
             ),
         }
@@ -330,10 +356,12 @@ class TestFuturesSystemIntegration:
         mock_broker.positions.return_value = {
             "BTCUSDT": MockPosition(
                 symbol="BTCUSDT",
-                size=Decimal("0.05"),
+                side="long",
+                qty=Decimal("0.05"),
                 entry_price=Decimal("50000"),
                 current_price=Decimal("50200"),
-                unrealized_pnl=Decimal("10"),
+                pnl=Decimal("10"),
+                pnl_pct=Decimal("0.002"),
                 maintenance_margin=Decimal("250"),
             )
         }

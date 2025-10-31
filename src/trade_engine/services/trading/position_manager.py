@@ -195,13 +195,15 @@ class PositionManager:
             total_unrealized = Decimal("0")
 
             for symbol, pos in positions.items():
-                total_maintenance += pos.maintenance_margin or Decimal("0")
-                total_unrealized += pos.unrealized_pnl or Decimal("0")
+                # NOTE: maintenance_margin may not exist on base Position dataclass
+                total_maintenance += getattr(pos, 'maintenance_margin', Decimal("0")) or Decimal("0")
+                # NOTE: Position dataclass uses 'pnl', not 'unrealized_pnl'
+                total_unrealized += pos.pnl or Decimal("0")
 
                 logger.debug(
                     f"Position status | symbol={symbol} | "
-                    f"size={pos.size} | entry={pos.entry_price} | "
-                    f"current={pos.current_price} | pnl={pos.unrealized_pnl}"
+                    f"qty={pos.qty} | entry={pos.entry_price} | "
+                    f"current={pos.current_price} | pnl={pos.pnl}"
                 )
 
             # Check overall margin health
@@ -266,7 +268,8 @@ class PositionManager:
             exit_price = self.broker.get_ticker_price(symbol)
 
             # Calculate realized P&L
-            realized_pnl = pos.unrealized_pnl if pos.unrealized_pnl else Decimal("0")
+            # NOTE: Position dataclass uses 'pnl', not 'unrealized_pnl'
+            realized_pnl = pos.pnl if pos.pnl else Decimal("0")
 
             # Close on exchange
             self.broker.close_all(symbol)
@@ -334,21 +337,23 @@ class PositionManager:
                 return
 
             # Find largest position by notional value
+            # NOTE: Position dataclass uses 'qty', not 'size'
             largest = max(
-                positions.items(), key=lambda x: abs(x[1].size * x[1].current_price)
+                positions.items(), key=lambda x: abs(x[1].qty * x[1].current_price)
             )
 
             symbol = largest[0]
             pos = largest[1]
-            reduce_size = abs(pos.size) * Decimal("0.5")
+            reduce_size = abs(pos.qty) * Decimal("0.5")
 
             logger.warning(
                 f"Reducing position | symbol={symbol} | "
-                f"current_size={pos.size} | reduce_by={reduce_size}"
+                f"current_size={pos.qty} | reduce_by={reduce_size}"
             )
 
             # Execute reduction
-            side = "sell" if pos.size > 0 else "buy"
+            # For Position dataclass, check side field (not qty sign)
+            side = "sell" if pos.side == "long" else "buy"
 
             if side == "sell":
                 self.broker.sell(symbol, reduce_size)
