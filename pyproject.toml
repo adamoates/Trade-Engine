@@ -31,7 +31,10 @@ dependencies = [
     "python-dotenv==1.0.0",
     "pyyaml>=6.0",
     "loguru==0.7.2",
+    "structlog>=24.1.0",  # Structured logging with JSON support
     "sortedcontainers>=2.4.0",  # For L2 order book management
+    "ratelimit>=2.2.1",  # Rate limiting for API calls
+    "websockets>=12.0",  # WebSocket support for L2 feeds
 ]
 
 [project.optional-dependencies]
