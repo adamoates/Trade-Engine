@@ -152,7 +152,7 @@ python -m trade_engine.api.server
 - **Setting up CI/CD?** → [CI/CD Setup](ci-cd/setup.md)
 
 ### Getting Help
-- **Issues**: Check [Troubleshooting](operations/troubleshooting.md)
+- **Issues**: Check operations guides or file an issue
 - **Questions**: See [GitHub Discussions](https://github.com/adamoates/Trade-Engine/discussions)
 - **Bugs**: File an [issue](https://github.com/adamoates/Trade-Engine/issues)
 
