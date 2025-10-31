@@ -745,16 +745,28 @@ class BreakoutSetupDetector(Strategy):
         return True, "Risk filters passed"
 
     def _get_nearest_resistance(self, price: Decimal) -> Optional[Decimal]:
-        """Get nearest resistance level above current price."""
+        """
+        Get nearest resistance level above current price.
+
+        Returns:
+            Resistance level above price, or None if price exceeds all levels.
+
+        Note: When price exceeds all stored resistance levels, this returns None
+        to indicate a true breakout beyond all known resistance, not a routine
+        price move within historical ranges.
+        """
         if not self.resistance_levels:
             return None
 
-        # Find first resistance above current price
+        # Find first resistance above current price (search ascending order)
         for level in sorted(self.resistance_levels):
             if level >= price * (Decimal("1") - self.config.sr_tolerance_pct / Decimal("100")):
                 return level
 
-        return self.resistance_levels[-1] if self.resistance_levels else None
+        # Price exceeds all resistance levels - return None
+        # This prevents falsely classifying routine price action as breakouts
+        # when comparing against irrelevant low historical levels
+        return None
 
     def _get_oi_change_pct(self) -> Optional[Decimal]:
         """Calculate Open Interest change percentage over last 24 data points."""

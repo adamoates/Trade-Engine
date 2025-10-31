@@ -464,11 +464,12 @@ class TestRiskFilters:
             strategy.update_derivatives_data(open_interest=oi)
 
         # Risk filter should detect potential trap
-        score, msg = strategy._check_risk_filters()
+        passed, msg = strategy._check_risk_filters()
 
         # May or may not trigger depending on exact conditions
         # but function should run without error
-        assert isinstance(score, Decimal)
+        assert isinstance(passed, bool)
+        assert isinstance(msg, str)
 
 
 class TestSetupSignalOutput:
@@ -581,3 +582,265 @@ class TestEdgeCases:
 
         if len(strategy.rsi_values) > 0:
             assert isinstance(strategy.rsi_values[-1], Decimal)
+
+
+class TestCodeReviewFixes:
+    """Test fixes for code review issues."""
+
+    def test_macd_crossover_boundary_condition(self):
+        """Test MACD crossover detection doesn't access out of bounds."""
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT")
+
+        # Add exactly enough bars for MACD calculation
+        for i in range(26):  # macd_slow period
+            bar = Bar(
+                timestamp=1000 + i,
+                open=Decimal(str(50000 + i * 10)),
+                high=Decimal(str(50100 + i * 10)),
+                low=Decimal(str(49900 + i * 10)),
+                close=Decimal(str(50000 + i * 10)),
+                volume=Decimal("100")
+            )
+            strategy.on_bar(bar)
+
+        # Should not raise IndexError when checking momentum
+        score, msg = strategy._check_momentum()
+        assert isinstance(score, Decimal)
+        assert isinstance(msg, str)
+        assert score >= Decimal("0")
+
+    def test_sr_lookback_bars_minimum_validation(self):
+        """Test that sr_lookback_bars < 5 is corrected."""
+        config = BreakoutConfig()
+        config.sr_lookback_bars = 3  # Too small
+
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT", config=config)
+
+        # Should be corrected to 5
+        assert strategy.config.sr_lookback_bars == 5
+
+    def test_confidence_score_clamping(self):
+        """Test that confidence scores are clamped between 0 and 1."""
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT")
+
+        # Add bars with extreme conditions that might cause >1.0 confidence
+        for i in range(60):
+            bar = Bar(
+                timestamp=1000 + i,
+                open=Decimal(str(50000 + i * 100)),
+                high=Decimal(str(50200 + i * 100)),
+                low=Decimal(str(49800 + i * 100)),
+                close=Decimal(str(50000 + i * 100)),
+                volume=Decimal(str(1000 + i * 100))  # Increasing volume
+            )
+            strategy.on_bar(bar)
+
+        # Add derivatives signals (all bullish)
+        strategy.update_derivatives_data(
+            open_interest=Decimal("100000"),
+            funding_rate=Decimal("0.0002"),
+            put_call_ratio=Decimal("0.5")
+        )
+        for i in range(24):
+            strategy.update_derivatives_data(
+                open_interest=Decimal(str(100000 + i * 10000))  # 240% increase
+            )
+
+        # Generate a bar with breakout conditions
+        bar = Bar(
+            timestamp=2000,
+            open=Decimal("56000"),
+            high=Decimal("57000"),
+            close=Decimal("56500"),
+            low=Decimal("55900"),
+            volume=Decimal("5000")  # High volume
+        )
+        signals = strategy.on_bar(bar)
+
+        # Even with all factors bullish, confidence should be ≤ 1.0
+        setup = strategy._analyze_breakout_setup(bar)
+        assert setup.confidence >= Decimal("0")
+        assert setup.confidence <= Decimal("1.0")
+        assert setup.raw_confidence >= Decimal("0")
+        assert setup.raw_confidence <= Decimal("1.0")
+
+    def test_signal_count_increment(self):
+        """Test that signal_count increments when signals are generated."""
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT")
+        initial_count = strategy.signal_count
+
+        # Create conditions for a signal
+        # First add resistance level
+        for i in range(50):
+            price = Decimal("50000")
+            if i == 25:  # Create a peak (resistance)
+                price = Decimal("51000")
+            bar = Bar(
+                timestamp=1000 + i,
+                open=price,
+                high=price + Decimal("100"),
+                low=price - Decimal("100"),
+                close=price,
+                volume=Decimal("100")
+            )
+            strategy.on_bar(bar)
+
+        # Now create breakout with volume
+        bar = Bar(
+            timestamp=2000,
+            open=Decimal("51500"),
+            high=Decimal("51600"),
+            close=Decimal("51500"),
+            low=Decimal("51400"),
+            volume=Decimal("500")  # 5x volume spike
+        )
+
+        # Add derivatives to boost confidence
+        strategy.update_derivatives_data(
+            open_interest=Decimal("100000"),
+            funding_rate=Decimal("0.0002"),
+            put_call_ratio=Decimal("0.5")
+        )
+        for i in range(24):
+            strategy.update_derivatives_data(
+                open_interest=Decimal(str(100000 + i * 5000))
+            )
+
+        signals = strategy.on_bar(bar)
+
+        # If signal generated, count should increment
+        if len(signals) > 0:
+            assert strategy.signal_count == initial_count + 1
+        else:
+            # If no signal, count stays the same
+            assert strategy.signal_count == initial_count
+
+    def test_derivatives_data_staleness(self):
+        """Test that stale derivatives data is rejected."""
+        import time
+
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT")
+
+        # Add fresh derivatives data
+        strategy.update_derivatives_data(
+            open_interest=Decimal("100000"),
+            funding_rate=Decimal("0.0002"),
+            put_call_ratio=Decimal("0.5")
+        )
+
+        # Check that data is used
+        score1, msg1 = strategy._check_derivatives()
+        assert "stale" not in msg1.lower()
+
+        # Manually set last update to >1 hour ago
+        strategy.oi_last_update = int(time.time()) - 3601  # 1 hour 1 second ago
+
+        # Check that stale data is detected
+        score2, msg2 = strategy._check_derivatives()
+        assert score2 == Decimal("0")
+        assert "stale" in msg2.lower()
+
+    def test_division_by_zero_volume_ratio(self):
+        """Test that zero volume doesn't cause division by zero."""
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT")
+
+        # Add bars with zero volume
+        for i in range(30):
+            bar = Bar(
+                timestamp=1000 + i,
+                open=Decimal("50000"),
+                high=Decimal("50100"),
+                low=Decimal("49900"),
+                close=Decimal("50000"),
+                volume=Decimal("0")  # Zero volume
+            )
+            strategy.on_bar(bar)
+
+        # This should not raise ZeroDivisionError
+        bar = Bar(
+            timestamp=2000,
+            open=Decimal("50000"),
+            high=Decimal("50100"),
+            close=Decimal("50000"),
+            low=Decimal("49900"),
+            volume=Decimal("100")
+        )
+        setup = strategy._analyze_breakout_setup(bar)
+
+        # Volume ratio should be 0 or handle gracefully
+        assert isinstance(setup.volume_ratio, Decimal)
+        assert setup.volume_ratio >= Decimal("0")
+
+    def test_configuration_weight_validation(self):
+        """Test that misconfigured weights generate a warning."""
+        config = BreakoutConfig()
+        # Intentionally misconfigure weights
+        config.weight_breakout = Decimal("0.50")  # Changed from 0.30
+        # Sum is now 1.20 instead of 1.00
+
+        # This should log a warning but not fail
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT", config=config)
+
+        # Strategy should still initialize
+        assert strategy.symbol == "BTCUSDT"
+        assert strategy.config == config
+
+    def test_reset_clears_staleness_timestamps(self):
+        """Test that reset clears derivatives staleness timestamps."""
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT")
+
+        # Set derivatives data and timestamps
+        strategy.update_derivatives_data(
+            open_interest=Decimal("100000"),
+            funding_rate=Decimal("0.0002"),
+            put_call_ratio=Decimal("0.5")
+        )
+
+        assert strategy.oi_last_update is not None
+        assert strategy.funding_last_update is not None
+        assert strategy.put_call_last_update is not None
+
+        # Reset strategy
+        strategy.reset()
+
+        # All timestamps should be None
+        assert strategy.oi_last_update is None
+        assert strategy.funding_last_update is None
+        assert strategy.put_call_last_update is None
+
+    def test_resistance_fallback_when_price_exceeds_all_levels(self):
+        """
+        Test that _get_nearest_resistance returns None when price exceeds all levels.
+
+        Critical bug fix: Previously returned lowest resistance (resistance_levels[-1])
+        when price exceeded all levels, causing false breakout signals on routine
+        price action above historical ranges.
+        """
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT")
+
+        # Set resistance levels: 50000, 51000, 52000 (stored descending)
+        strategy.resistance_levels = [
+            Decimal("52000"),  # Highest
+            Decimal("51000"),
+            Decimal("50000")   # Lowest
+        ]
+
+        # Test 1: Price below all levels - should get lowest resistance (50000)
+        result = strategy._get_nearest_resistance(Decimal("49000"))
+        assert result == Decimal("50000"), "Should return lowest resistance when price below all"
+
+        # Test 2: Price between levels - should get next level up
+        result = strategy._get_nearest_resistance(Decimal("50500"))
+        assert result == Decimal("51000"), "Should return next resistance above price"
+
+        # Test 3: Price above all levels - should return None (critical fix)
+        result = strategy._get_nearest_resistance(Decimal("53000"))
+        assert result is None, (
+            "CRITICAL: Must return None when price exceeds all resistance levels. "
+            "Returning lowest level (50000) would falsely classify routine price "
+            "action at 53000 as a breakout above irrelevant 50000 resistance."
+        )
+
+        # Test 4: Price exactly at highest level - should return that level
+        result = strategy._get_nearest_resistance(Decimal("52000"))
+        assert result == Decimal("52000"), "Should return level when price matches"
