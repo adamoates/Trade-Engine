@@ -40,8 +40,8 @@ def main():
     logger.info("✓ Broker initialized (testnet)")
 
     # 3. Funding service
-    funding = FundingRateService(database=db)
-    logger.info("✓ Funding rate service initialized")
+    funding = FundingRateService(database=db, testnet=True)
+    logger.info("✓ Funding rate service initialized (testnet)")
 
     # 4. Risk manager
     risk_config = {

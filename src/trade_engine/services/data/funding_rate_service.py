@@ -24,16 +24,21 @@ class FundingRateService:
     Negative rate = shorts pay longs
     """
 
-    BINANCE_FUNDING_URL = "https://fapi.binance.com/fapi/v1/fundingRate"
-
-    def __init__(self, database=None):
+    def __init__(self, database=None, testnet: bool = False):
         """
         Initialize funding rate service.
 
         Args:
             database: Optional PostgresDatabase instance for logging
+            testnet: If True, use Binance testnet URL instead of mainnet
         """
         self.db = database
+
+        # Configure API URL based on environment
+        if testnet:
+            self.funding_url = "https://testnet.binancefuture.com/fapi/v1/fundingRate"
+        else:
+            self.funding_url = "https://fapi.binance.com/fapi/v1/fundingRate"
 
     def get_current_funding_rate(self, symbol: str) -> Decimal:
         """
@@ -51,7 +56,7 @@ class FundingRateService:
         try:
             params = {"symbol": symbol, "limit": 1}
             response = requests.get(
-                self.BINANCE_FUNDING_URL, params=params, timeout=10
+                self.funding_url, params=params, timeout=10
             )
             response.raise_for_status()
 
@@ -93,7 +98,7 @@ class FundingRateService:
                 params["startTime"] = start_time
 
             response = requests.get(
-                self.BINANCE_FUNDING_URL, params=params, timeout=10
+                self.funding_url, params=params, timeout=10
             )
             response.raise_for_status()
             return response.json()
