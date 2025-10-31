@@ -772,18 +772,37 @@ class TestCodeReviewFixes:
         assert setup.volume_ratio >= Decimal("0")
 
     def test_configuration_weight_validation(self):
-        """Test that misconfigured weights generate a warning."""
+        """Test that misconfigured weights are auto-normalized."""
         config = BreakoutConfig()
         # Intentionally misconfigure weights
         config.weight_breakout = Decimal("0.50")  # Changed from 0.30
+        config.weight_momentum = Decimal("0.25")
+        config.weight_volatility = Decimal("0.15")
+        config.weight_derivatives = Decimal("0.20")
+        config.weight_risk_filter = Decimal("0.10")
         # Sum is now 1.20 instead of 1.00
 
-        # This should log a warning but not fail
+        # This should log a warning and auto-normalize
         strategy = BreakoutSetupDetector(symbol="BTCUSDT", config=config)
 
-        # Strategy should still initialize
+        # Strategy should initialize successfully
         assert strategy.symbol == "BTCUSDT"
-        assert strategy.config == config
+
+        # Weights should be auto-normalized to sum to 1.0
+        weight_sum = (
+            strategy.config.weight_breakout +
+            strategy.config.weight_momentum +
+            strategy.config.weight_volatility +
+            strategy.config.weight_derivatives +
+            strategy.config.weight_risk_filter
+        )
+        assert weight_sum == Decimal("1.0"), f"Weights should sum to 1.0, got {weight_sum}"
+
+        # Verify proportions are maintained (all divided by 1.20)
+        expected_breakout = Decimal("0.50") / Decimal("1.20")
+        assert abs(strategy.config.weight_breakout - expected_breakout) < Decimal("0.0001"), (
+            f"Breakout weight should be {expected_breakout}, got {strategy.config.weight_breakout}"
+        )
 
     def test_reset_clears_staleness_timestamps(self):
         """Test that reset clears derivatives staleness timestamps."""

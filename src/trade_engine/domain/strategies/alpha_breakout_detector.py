@@ -155,7 +155,7 @@ class BreakoutSetupDetector(Strategy):
             )
             self.config.sr_lookback_bars = min_sr_bars
 
-        # Validate confidence weights sum to 1.0
+        # Validate and auto-normalize confidence weights to sum to 1.0
         weight_sum = (
             self.config.weight_breakout +
             self.config.weight_momentum +
@@ -174,7 +174,25 @@ class BreakoutSetupDetector(Strategy):
                 volatility=float(self.config.weight_volatility),
                 derivatives=float(self.config.weight_derivatives),
                 risk_filter=float(self.config.weight_risk_filter),
-                impact="Confidence scores may be scaled incorrectly"
+                action="auto_normalizing"
+            )
+
+            # Auto-normalize weights to sum to 1.0
+            self.config.weight_breakout /= weight_sum
+            self.config.weight_momentum /= weight_sum
+            self.config.weight_volatility /= weight_sum
+            self.config.weight_derivatives /= weight_sum
+            self.config.weight_risk_filter /= weight_sum
+
+            logger.info(
+                "confidence_weights_normalized",
+                symbol=self.symbol,
+                breakout=float(self.config.weight_breakout),
+                momentum=float(self.config.weight_momentum),
+                volatility=float(self.config.weight_volatility),
+                derivatives=float(self.config.weight_derivatives),
+                risk_filter=float(self.config.weight_risk_filter),
+                new_sum=1.0
             )
 
         # Price history for indicators
