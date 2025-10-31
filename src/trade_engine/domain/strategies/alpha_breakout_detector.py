@@ -43,9 +43,11 @@ class BreakoutConfig:
     bb_period: int = 20
     bb_std_dev: Decimal = Decimal("2.0")
     bb_squeeze_threshold: Decimal = Decimal("0.02")  # 2% bandwidth = tight
+    bb_expansion_multiplier: Decimal = Decimal("1.5")  # 1.5x squeeze bandwidth = expansion
 
     # Volume
     volume_ma_period: int = 20
+    min_volume_threshold: Decimal = Decimal("0.001")  # Minimum volume for ratio calculation
 
     # Derivatives (Optional - may not be available)
     oi_increase_threshold: Decimal = Decimal("0.10")  # 10% increase in 24h
@@ -56,6 +58,13 @@ class BreakoutConfig:
     # Support/Resistance Detection
     sr_lookback_bars: int = 50  # Look back 50 bars for S/R levels
     sr_tolerance_pct: Decimal = Decimal("0.5")  # 0.5% tolerance for level matching
+    sr_detection_window: int = 2  # Bars on each side for swing high/low detection
+
+    # Risk Filters
+    trap_detection_price_move_pct: Decimal = Decimal("1.0")  # <1% price move = flat (trap risk)
+    stop_loss_pct_below_resistance: Decimal = Decimal("0.98")  # Stop loss 2% below resistance
+    stop_loss_pct_fallback: Decimal = Decimal("0.97")  # Stop loss 3% below entry if no resistance
+    take_profit_risk_reward_ratio: Decimal = Decimal("2.0")  # 2:1 R:R ratio for TP
 
     # Position Sizing
     position_size_usd: Decimal = Decimal("1000")
@@ -66,6 +75,10 @@ class BreakoutConfig:
     weight_volatility: Decimal = Decimal("0.15")
     weight_derivatives: Decimal = Decimal("0.20")
     weight_risk_filter: Decimal = Decimal("0.10")
+
+    # Signal Generation Thresholds
+    confidence_threshold_bullish_breakout: Decimal = Decimal("0.70")  # 70% confidence for signal
+    confidence_threshold_watchlist: Decimal = Decimal("0.50")  # 50% confidence for watchlist
 
 
 @dataclass
@@ -90,6 +103,10 @@ class SetupSignal:
     oi_change_pct: Optional[Decimal] = None
     funding_rate: Optional[Decimal] = None
     put_call_ratio: Optional[Decimal] = None
+
+    # Confidence breakdown
+    raw_confidence: Decimal = Decimal("0")  # Confidence before risk filter
+    risk_blocked: bool = False  # True if risk filter failed
 
     timestamp: int = 0
 
@@ -123,6 +140,28 @@ class BreakoutSetupDetector(Strategy):
         self.symbol = symbol
         self.config = config or BreakoutConfig()
 
+        # Validate configuration
+        if self.config.sr_lookback_bars < 5:
+            logger.warning(
+                f"sr_lookback_bars={self.config.sr_lookback_bars} too small for S/R detection, "
+                f"using minimum of 5"
+            )
+            self.config.sr_lookback_bars = 5
+
+        # Validate confidence weights sum to 1.0
+        weight_sum = (
+            self.config.weight_breakout +
+            self.config.weight_momentum +
+            self.config.weight_volatility +
+            self.config.weight_derivatives +
+            self.config.weight_risk_filter
+        )
+        if weight_sum != Decimal("1.0"):
+            logger.warning(
+                f"Confidence weights sum to {weight_sum}, expected 1.0. "
+                f"Confidence scores may be scaled incorrectly."
+            )
+
         # Price history for indicators
         self.closes: deque = deque(maxlen=max(
             self.config.bb_period,
@@ -139,6 +178,10 @@ class BreakoutSetupDetector(Strategy):
         self.macd_signal_values: deque = deque(maxlen=self.config.macd_lookback_bars + 10)
         self.macd_histogram_values: deque = deque(maxlen=self.config.macd_lookback_bars)
 
+        # RSI Wilder's smoothing state
+        self._prev_avg_gain: Optional[Decimal] = None
+        self._prev_avg_loss: Optional[Decimal] = None
+
         # Support/Resistance levels
         self.resistance_levels: List[Decimal] = []
         self.support_levels: List[Decimal] = []
@@ -147,6 +190,12 @@ class BreakoutSetupDetector(Strategy):
         self.open_interest_history: deque = deque(maxlen=24)  # 24 hours of data
         self.current_funding_rate: Optional[Decimal] = None
         self.current_put_call_ratio: Optional[Decimal] = None
+
+        # Derivatives data staleness tracking
+        self.oi_last_update: Optional[int] = None
+        self.funding_last_update: Optional[int] = None
+        self.put_call_last_update: Optional[int] = None
+        self.derivatives_staleness_threshold: int = 3600  # 1 hour in seconds
 
         # State tracking
         self.last_signal_time: int = 0
@@ -179,7 +228,13 @@ class BreakoutSetupDetector(Strategy):
 
         # Need minimum bars for indicators
         if len(self.closes) < self.config.bb_period:
-            logger.debug(f"Warming up indicators: {len(self.closes)}/{self.config.bb_period} bars")
+            logger.debug(
+                "strategy_warmup",
+                symbol=self.symbol,
+                current_bars=len(self.closes),
+                required_bars=self.config.bb_period,
+                status="warming_up"
+            )
             return []
 
         # Update indicators
@@ -191,21 +246,28 @@ class BreakoutSetupDetector(Strategy):
         # Analyze breakout setup
         setup = self._analyze_breakout_setup(bar)
 
-        # Log detailed setup info
+        # Log detailed setup info with structured logging
         logger.info(
-            f"Breakout Analysis | "
-            f"Setup: {setup.setup} | "
-            f"Confidence: {setup.confidence:.2f} | "
-            f"Conditions Met: {len(setup.conditions_met)}/4 | "
-            f"Price: {setup.current_price} | "
-            f"Resistance: {setup.resistance_level} | "
-            f"Vol Ratio: {setup.volume_ratio:.2f}x | "
-            f"RSI: {setup.rsi:.0f} | "
-            f"MACD Hist: {setup.macd_histogram:+.4f}"
+            "breakout_analysis",
+            symbol=self.symbol,
+            setup=setup.setup,
+            confidence=float(setup.confidence),
+            raw_confidence=float(setup.raw_confidence),
+            risk_blocked=setup.risk_blocked,
+            conditions_met=len(setup.conditions_met),
+            conditions_failed=len(setup.conditions_failed),
+            current_price=str(setup.current_price),
+            resistance_level=str(setup.resistance_level) if setup.resistance_level else None,
+            volume_ratio=float(setup.volume_ratio),
+            rsi=float(setup.rsi),
+            macd_histogram=float(setup.macd_histogram),
+            bb_bandwidth_pct=float(setup.bb_bandwidth_pct),
+            oi_change_pct=float(setup.oi_change_pct) if setup.oi_change_pct else None,
+            funding_rate=float(setup.funding_rate) if setup.funding_rate else None
         )
 
         # Convert to standard Signal if bullish breakout detected
-        if setup.setup == "Bullish Breakout" and setup.confidence >= Decimal("0.70"):
+        if setup.setup == "Bullish Breakout" and setup.confidence >= self.config.confidence_threshold_bullish_breakout:
             signal = self._create_signal_from_setup(setup, bar)
             self.signal_count += 1
             self.last_signal_time = int(time.time())
@@ -213,7 +275,7 @@ class BreakoutSetupDetector(Strategy):
 
         return []
 
-    def _update_indicators(self):
+    def _update_indicators(self) -> None:
         """Calculate and update all technical indicators."""
         # RSI
         rsi = self._calculate_rsi()
@@ -228,27 +290,48 @@ class BreakoutSetupDetector(Strategy):
             self.macd_histogram_values.append(histogram)
 
     def _calculate_rsi(self) -> Optional[Decimal]:
-        """Calculate RSI (14-period default)."""
+        """
+        Calculate RSI using Wilder's smoothing method.
+
+        Formula:
+        - First RS = average gain / average loss over period
+        - Subsequent RS = (previous average gain * (period-1) + current gain) / period
+                        / (previous average loss * (period-1) + current loss) / period
+
+        This matches TradingView, MT4, and industry-standard RSI implementations.
+        """
         if len(self.closes) < self.config.rsi_period + 1:
             return None
 
-        gains = Decimal("0")
-        losses = Decimal("0")
+        # First calculation: use simple moving average
+        if self._prev_avg_gain is None or self._prev_avg_loss is None:
+            gains = Decimal("0")
+            losses = Decimal("0")
 
-        for i in range(1, self.config.rsi_period + 1):
-            change = self.closes[-i] - self.closes[-i - 1]
-            if change > 0:
-                gains += change
-            else:
-                losses += abs(change)
+            for i in range(1, self.config.rsi_period + 1):
+                change = self.closes[-i] - self.closes[-i - 1]
+                if change > 0:
+                    gains += change
+                else:
+                    losses += abs(change)
 
-        avg_gain = gains / self.config.rsi_period
-        avg_loss = losses / self.config.rsi_period
+            self._prev_avg_gain = gains / Decimal(str(self.config.rsi_period))
+            self._prev_avg_loss = losses / Decimal(str(self.config.rsi_period))
+        else:
+            # Wilder's smoothing: exponential averaging
+            change = self.closes[-1] - self.closes[-2]
+            current_gain = change if change > 0 else Decimal("0")
+            current_loss = abs(change) if change < 0 else Decimal("0")
 
-        if avg_loss == 0:
+            period_dec = Decimal(str(self.config.rsi_period))
+            self._prev_avg_gain = (self._prev_avg_gain * (period_dec - 1) + current_gain) / period_dec
+            self._prev_avg_loss = (self._prev_avg_loss * (period_dec - 1) + current_loss) / period_dec
+
+        # Calculate RSI
+        if self._prev_avg_loss == 0:
             return Decimal("100")
 
-        rs = avg_gain / avg_loss
+        rs = self._prev_avg_gain / self._prev_avg_loss
         rsi = Decimal("100") - (Decimal("100") / (Decimal("1") + rs))
 
         return rsi
@@ -293,7 +376,7 @@ class BreakoutSetupDetector(Strategy):
         return ema
 
     def _calculate_bollinger_bands(self) -> tuple[Decimal, Decimal, Decimal]:
-        """Calculate Bollinger Bands (20, 2 default)."""
+        """Calculate Bollinger Bands (upper, middle, lower)."""
         period = self.config.bb_period
         std_dev = self.config.bb_std_dev
 
@@ -313,8 +396,13 @@ class BreakoutSetupDetector(Strategy):
 
         return upper, middle, lower
 
-    def _update_support_resistance(self):
-        """Detect support and resistance levels from recent price action."""
+    def _update_support_resistance(self) -> None:
+        """
+        Detect support and resistance levels from recent price action.
+
+        Uses >= comparisons to handle double tops/bottoms and tolerance-based
+        merging to consolidate nearby levels.
+        """
         if len(self.highs) < self.config.sr_lookback_bars:
             return
 
@@ -323,26 +411,60 @@ class BreakoutSetupDetector(Strategy):
         recent_lows = list(self.lows)[-self.config.sr_lookback_bars:]
 
         # Resistance: Recent swing highs (local maxima)
-        self.resistance_levels = []
-        for i in range(2, len(recent_highs) - 2):
-            if (recent_highs[i] > recent_highs[i-1] and
-                recent_highs[i] > recent_highs[i-2] and
-                recent_highs[i] > recent_highs[i+1] and
-                recent_highs[i] > recent_highs[i+2]):
-                self.resistance_levels.append(recent_highs[i])
+        # Using >= to handle double tops
+        raw_resistance = []
+        window = self.config.sr_detection_window
+        for i in range(window, len(recent_highs) - window):
+            if (recent_highs[i] >= recent_highs[i-1] and
+                recent_highs[i] >= recent_highs[i-2] and
+                recent_highs[i] >= recent_highs[i+1] and
+                recent_highs[i] >= recent_highs[i+2]):
+                raw_resistance.append(recent_highs[i])
 
         # Support: Recent swing lows (local minima)
-        self.support_levels = []
-        for i in range(2, len(recent_lows) - 2):
-            if (recent_lows[i] < recent_lows[i-1] and
-                recent_lows[i] < recent_lows[i-2] and
-                recent_lows[i] < recent_lows[i+1] and
-                recent_lows[i] < recent_lows[i+2]):
-                self.support_levels.append(recent_lows[i])
+        # Using <= to handle double bottoms
+        raw_support = []
+        for i in range(window, len(recent_lows) - window):
+            if (recent_lows[i] <= recent_lows[i-1] and
+                recent_lows[i] <= recent_lows[i-2] and
+                recent_lows[i] <= recent_lows[i+1] and
+                recent_lows[i] <= recent_lows[i+2]):
+                raw_support.append(recent_lows[i])
 
-        # Sort and deduplicate
-        self.resistance_levels = sorted(set(self.resistance_levels), reverse=True)[:5]
-        self.support_levels = sorted(set(self.support_levels), reverse=True)[:5]
+        # Merge nearby levels using tolerance
+        self.resistance_levels = self._merge_nearby_levels(raw_resistance)[:5]
+        self.support_levels = self._merge_nearby_levels(raw_support)[:5]
+
+    def _merge_nearby_levels(self, levels: List[Decimal]) -> List[Decimal]:
+        """
+        Merge nearby S/R levels within tolerance percentage.
+
+        Args:
+            levels: List of price levels to merge
+
+        Returns:
+            Merged list of unique levels
+        """
+        if not levels:
+            return []
+
+        # Sort levels
+        sorted_levels = sorted(set(levels), reverse=True)
+        merged: List[Decimal] = []
+
+        for level in sorted_levels:
+            # Check if this level is close to any existing merged level
+            is_unique = True
+            for existing_level in merged:
+                pct_diff = abs(level - existing_level) / existing_level * Decimal("100")
+                if pct_diff < self.config.sr_tolerance_pct:
+                    is_unique = False
+                    break
+
+            if is_unique:
+                merged.append(level)
+
+        return merged
 
     def _analyze_breakout_setup(self, bar: Bar) -> SetupSignal:
         """
@@ -408,31 +530,46 @@ class BreakoutSetupDetector(Strategy):
         setup.funding_rate = self.current_funding_rate
         setup.put_call_ratio = self.current_put_call_ratio
 
-        # 5. RISK FILTER
-        risk_score, risk_msg = self._check_risk_filters()
-        if risk_score > 0:
-            conditions_met.append(risk_msg)
-        else:
-            conditions_failed.append(risk_msg)
-            # Risk filter failure is critical - heavily penalize
-            confidence_scores.append(Decimal("-0.5"))
-
-        # Calculate volume ratio
+        # Calculate volume ratio with robust zero check
         if len(self.volumes) >= self.config.volume_ma_period:
             avg_volume = sum(list(self.volumes)[:-1]) / Decimal(str(self.config.volume_ma_period - 1))
-            if avg_volume > 0:
+            # Use robust threshold to avoid division by near-zero values
+            if avg_volume > self.config.min_volume_threshold:
                 setup.volume_ratio = bar.volume / avg_volume
+            else:
+                setup.volume_ratio = Decimal("0")
+                logger.warning(
+                    "volume_ratio_skipped",
+                    symbol=self.symbol,
+                    avg_volume=str(avg_volume),
+                    threshold=str(self.config.min_volume_threshold),
+                    reason="Average volume below minimum threshold"
+                )
 
-        # Calculate final confidence
-        setup.confidence = max(Decimal("0"), min(Decimal("1"), sum(confidence_scores)))
+        # Calculate RAW confidence from POSITIVE factors only (before risk filter)
+        setup.raw_confidence = max(Decimal("0"), min(Decimal("1"), sum(confidence_scores)))
+
+        # 5. RISK FILTER - Applied as BOOLEAN gate, not as confidence penalty
+        risk_passed, risk_msg = self._check_risk_filters()
+        if risk_passed:
+            # Risk filter passed - use raw confidence
+            setup.confidence = setup.raw_confidence
+            setup.risk_blocked = False
+            conditions_met.append(risk_msg)
+        else:
+            # Risk filter failed - hard block (set confidence to 0)
+            setup.confidence = Decimal("0")
+            setup.risk_blocked = True
+            conditions_failed.append(risk_msg)
+
         setup.conditions_met = conditions_met
         setup.conditions_failed = conditions_failed
 
-        # Determine setup type
-        if setup.confidence >= Decimal("0.70"):
+        # Determine setup type based on confidence thresholds
+        if setup.confidence >= self.config.confidence_threshold_bullish_breakout:
             setup.setup = "Bullish Breakout"
             setup.action = "Enter long via call options or perp with stop below resistance"
-        elif setup.confidence >= Decimal("0.50"):
+        elif setup.confidence >= self.config.confidence_threshold_watchlist:
             setup.setup = "Watchlist"
             setup.action = "Setup forming but not confirmed. Monitor for entry."
         else:
@@ -460,7 +597,19 @@ class BreakoutSetupDetector(Strategy):
             return Decimal("0.5"), f"Breakout above {nearest_resistance} but volume data insufficient"
 
         avg_volume = sum(list(self.volumes)[:-1]) / Decimal(str(self.config.volume_ma_period - 1))
-        volume_ratio = bar.volume / avg_volume if avg_volume > 0 else Decimal("0")
+
+        # Robust check: ensure avg_volume is above minimum threshold to avoid division issues
+        if avg_volume <= self.config.min_volume_threshold:
+            logger.warning(
+                "breakout_volume_insufficient",
+                symbol=self.symbol,
+                avg_volume=str(avg_volume),
+                threshold=str(self.config.min_volume_threshold),
+                nearest_resistance=str(nearest_resistance)
+            )
+            return Decimal("0.3"), f"Breakout above {nearest_resistance} but volume too low to confirm"
+
+        volume_ratio = bar.volume / avg_volume
 
         if volume_ratio >= self.config.volume_spike_threshold:
             return Decimal("1.0"), f"Breakout above resistance {nearest_resistance} with volume {volume_ratio:.1f}x avg"
@@ -490,9 +639,11 @@ class BreakoutSetupDetector(Strategy):
             # Check if MACD crossed above zero in last N bars
             macd_crossed_up = False
             for i in range(1, min(self.config.macd_lookback_bars + 1, len(self.macd_values))):
-                if self.macd_values[-i] > 0 and self.macd_values[-i-1] <= 0:
-                    macd_crossed_up = True
-                    break
+                # Safety check: ensure we don't access out of bounds
+                if i + 1 <= len(self.macd_values):
+                    if self.macd_values[-i] > 0 and self.macd_values[-i-1] <= 0:
+                        macd_crossed_up = True
+                        break
 
             if macd_crossed_up or self.macd_values[-1] > 0:
                 score += Decimal("0.5")
@@ -512,9 +663,12 @@ class BreakoutSetupDetector(Strategy):
 
         # Check historical bandwidth to see if it was recently tight
         # For now, simple check: is current bandwidth expanding from tight?
-        if bandwidth_pct <= self.config.bb_squeeze_threshold * Decimal("100"):
+        squeeze_threshold_pct = self.config.bb_squeeze_threshold * Decimal("100")
+        expansion_threshold_pct = squeeze_threshold_pct * self.config.bb_expansion_multiplier
+
+        if bandwidth_pct <= squeeze_threshold_pct:
             return Decimal("0.5"), f"BB squeeze active ({bandwidth_pct:.2f}% bandwidth)"
-        elif bandwidth_pct > self.config.bb_squeeze_threshold * Decimal("100") * Decimal("1.5"):
+        elif bandwidth_pct > expansion_threshold_pct:
             return Decimal("1.0"), f"BB expanding from squeeze ({bandwidth_pct:.2f}% bandwidth)"
         else:
             return Decimal("0"), f"BB bandwidth normal ({bandwidth_pct:.2f}%)"
@@ -523,6 +677,11 @@ class BreakoutSetupDetector(Strategy):
         """Check Open Interest, Funding Rate, Put/Call Ratio."""
         score = Decimal("0")
         messages = []
+        current_time = int(time.time())
+
+        # Check for stale derivatives data
+        if self.oi_last_update and (current_time - self.oi_last_update) > self.derivatives_staleness_threshold:
+            return Decimal("0"), "Derivatives data stale (OI >1h old)"
 
         # Open Interest Check
         oi_change = self._get_oi_change_pct()
@@ -558,16 +717,21 @@ class BreakoutSetupDetector(Strategy):
 
         return score, ", ".join(messages)
 
-    def _check_risk_filters(self) -> tuple[Decimal, str]:
-        """Check for overextension and trap conditions."""
+    def _check_risk_filters(self) -> tuple[bool, str]:
+        """
+        Check for overextension and trap conditions.
+
+        Returns:
+            (passed, message): True if all risk filters passed, False otherwise
+        """
         if len(self.rsi_values) == 0:
-            return Decimal("1.0"), "Risk filters passed (no RSI data)"
+            return True, "Risk filters passed (no RSI data)"
 
         current_rsi = self.rsi_values[-1]
 
         # Overextended RSI
         if current_rsi > self.config.rsi_overbought_threshold:
-            return Decimal("0"), f"RSI {current_rsi:.0f} overextended (>{self.config.rsi_overbought_threshold})"
+            return False, f"RSI {current_rsi:.0f} overextended (>{self.config.rsi_overbought_threshold})"
 
         # OI Spike + Flat Price = Possible Trap
         oi_change = self._get_oi_change_pct()
@@ -575,10 +739,10 @@ class BreakoutSetupDetector(Strategy):
             # Check if price is flat (low volatility despite OI spike)
             if len(self.closes) >= 5:
                 price_change_pct = abs((self.closes[-1] - self.closes[-5]) / self.closes[-5]) * Decimal("100")
-                if price_change_pct < Decimal("1.0"):  # Less than 1% move
-                    return Decimal("0"), f"OI spike +{oi_change*100:.0f}% but price flat (trap?)"
+                if price_change_pct < self.config.trap_detection_price_move_pct:
+                    return False, f"OI spike +{oi_change*100:.0f}% but price flat (trap?)"
 
-        return Decimal("1.0"), "Risk filters passed"
+        return True, "Risk filters passed"
 
     def _get_nearest_resistance(self, price: Decimal) -> Optional[Decimal]:
         """Get nearest resistance level above current price."""
@@ -593,14 +757,15 @@ class BreakoutSetupDetector(Strategy):
         return self.resistance_levels[-1] if self.resistance_levels else None
 
     def _get_oi_change_pct(self) -> Optional[Decimal]:
-        """Calculate Open Interest change over last 24 data points."""
+        """Calculate Open Interest change percentage over last 24 data points."""
         if len(self.open_interest_history) < 2:
             return None
 
         old_oi = self.open_interest_history[0]
         new_oi = self.open_interest_history[-1]
 
-        if old_oi == 0:
+        # Robust zero check: use small threshold instead of exact zero
+        if old_oi <= Decimal("0.000001"):
             return None
 
         return (new_oi - old_oi) / old_oi
@@ -611,11 +776,14 @@ class BreakoutSetupDetector(Strategy):
         qty = self.config.position_size_usd / bar.close
 
         # Set stop loss below resistance (or recent support)
-        sl_price = setup.resistance_level * Decimal("0.98") if setup.resistance_level else bar.close * Decimal("0.97")
+        if setup.resistance_level:
+            sl_price = setup.resistance_level * self.config.stop_loss_pct_below_resistance
+        else:
+            sl_price = bar.close * self.config.stop_loss_pct_fallback
 
-        # Set take profit based on R:R ratio (aim for 2:1)
+        # Set take profit based on R:R ratio
         risk = bar.close - sl_price
-        tp_price = bar.close + (risk * Decimal("2"))
+        tp_price = bar.close + (risk * self.config.take_profit_risk_reward_ratio)
 
         signal = Signal(
             symbol=self.symbol,
@@ -634,7 +802,7 @@ class BreakoutSetupDetector(Strategy):
         open_interest: Optional[Decimal] = None,
         funding_rate: Optional[Decimal] = None,
         put_call_ratio: Optional[Decimal] = None
-    ):
+    ) -> None:
         """
         Update derivatives data (call externally when data available).
 
@@ -643,16 +811,21 @@ class BreakoutSetupDetector(Strategy):
             funding_rate: Current funding rate (per 8h for perps)
             put_call_ratio: Current put/call ratio for options
         """
+        current_time = int(time.time())
+
         if open_interest is not None:
             self.open_interest_history.append(open_interest)
+            self.oi_last_update = current_time
 
         if funding_rate is not None:
             self.current_funding_rate = funding_rate
+            self.funding_last_update = current_time
 
         if put_call_ratio is not None:
             self.current_put_call_ratio = put_call_ratio
+            self.put_call_last_update = current_time
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset strategy state."""
         self.closes.clear()
         self.highs.clear()
@@ -667,6 +840,11 @@ class BreakoutSetupDetector(Strategy):
         self.open_interest_history.clear()
         self.current_funding_rate = None
         self.current_put_call_ratio = None
+        self.oi_last_update = None
+        self.funding_last_update = None
+        self.put_call_last_update = None
+        self._prev_avg_gain = None
+        self._prev_avg_loss = None
         self.last_signal_time = 0
         self.signal_count = 0
 
