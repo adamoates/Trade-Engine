@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Dict, Optional, Any
 from loguru import logger
 
-from trade_engine.adapters.brokers.base import Broker
+from trade_engine.adapters.brokers.base import BrokerAdapter
 from trade_engine.domain.risk.futures_risk_manager import FuturesRiskManager
 from trade_engine.services.data.funding_rate_service import FundingRateService
 from trade_engine.db.postgres_adapter import PostgresDatabase
@@ -28,7 +28,7 @@ class PositionManager:
 
     def __init__(
         self,
-        broker: Broker,
+        broker: BrokerAdapter,
         risk_manager: FuturesRiskManager,
         funding_service: FundingRateService,
         database: PostgresDatabase,
