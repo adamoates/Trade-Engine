@@ -338,18 +338,31 @@ class LogImporter:
         """
         Parse ISO timestamp string to datetime.
 
+        Handles multiple timezone formats:
+        - "2025-10-29T07:14:47.130863Z" (UTC with Z suffix)
+        - "2025-10-29T07:14:47.130863+00:00" (UTC explicit)
+        - "2025-10-29T07:14:47.130863+05:30" (Non-UTC timezones)
+        - "2025-10-29T07:14:47.130863" (Naive - assumes UTC)
+
         Args:
             ts_str: ISO format timestamp string
 
         Returns:
-            Datetime object (UTC)
+            Datetime object (always timezone-aware, converted to UTC)
         """
         if not ts_str:
             return datetime.now(timezone.utc)
 
         try:
-            # Parse ISO format: "2025-10-29T07:14:47.130863Z"
-            return datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            # Parse ISO format, handling "Z" suffix for UTC
+            dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+
+            # Ensure timezone-aware (assume UTC if naive)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+
+            # Always convert to UTC for consistent storage
+            return dt.astimezone(timezone.utc)
         except Exception as e:
             logger.warning(f"Failed to parse timestamp '{ts_str}': {e}")
             return datetime.now(timezone.utc)

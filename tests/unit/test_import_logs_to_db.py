@@ -173,6 +173,25 @@ class TestTimestampParsing:
         assert isinstance(result, datetime)
         assert (datetime.now(timezone.utc) - result).total_seconds() < 2
 
+    def test_parse_non_utc_timezone(self, importer):
+        """Test non-UTC timezone is converted to UTC."""
+        # IST (India Standard Time) is UTC+5:30
+        result = importer._parse_timestamp("2025-10-29T12:44:47+05:30")
+
+        # Should be converted to UTC: 12:44:47 IST = 07:14:47 UTC
+        assert result.hour == 7
+        assert result.minute == 14
+        assert result.second == 47
+        assert result.tzinfo == timezone.utc
+
+    def test_parse_naive_timestamp_assumes_utc(self, importer):
+        """Test naive timestamp (no timezone) is assumed to be UTC."""
+        result = importer._parse_timestamp("2025-10-29T07:14:47.130863")
+
+        # Should be treated as UTC
+        assert result.hour == 7
+        assert result.tzinfo == timezone.utc
+
 
 # ============================================================================
 # TEST AUDIT LOG IMPORT
