@@ -60,12 +60,14 @@ class PostgresDatabase:
 
     Features:
     - ACID compliance via transactions
-    - Connection pooling
+    - Thread-safe connection management
     - Automatic P&L calculation
     - Multi-broker support
     - Audit trail for compliance
+    - Automatic schema initialization
 
-    Thread Safety: Uses connection pooling with thread-safe operations.
+    Thread Safety: Uses thread-safe connection context managers with automatic
+    commit/rollback handling.
     """
 
     def __init__(self, database_url: Optional[str] = None):
@@ -103,6 +105,128 @@ class PostgresDatabase:
             raise PostgresDatabaseError(f"Failed to connect to PostgreSQL: {e}")
 
         logger.info(f"PostgresDatabase initialized | URL: {self._mask_url(self.database_url)}")
+
+        # Initialize schema if needed
+        self.init_schema()
+
+    def init_schema(self) -> None:
+        """
+        Initialize database schema if tables don't exist.
+
+        Creates tables for:
+        - positions: Position tracking with entry/exit prices and P&L
+        - trades: Complete audit trail of all executions
+        - risk_events: Risk management events (kill switch, limit breaches)
+
+        Safe to call multiple times - uses CREATE TABLE IF NOT EXISTS.
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                # Create ENUM type for risk events (must be done separately)
+                cur.execute("""
+                    DO $$ BEGIN
+                        CREATE TYPE risk_event_type AS ENUM (
+                            'kill_switch', 'daily_loss_limit', 'max_drawdown',
+                            'position_limit', 'order_rejected'
+                        );
+                    EXCEPTION
+                        WHEN duplicate_object THEN null;
+                    END $$;
+                """)
+
+                # Create positions table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS positions (
+                        id SERIAL PRIMARY KEY,
+                        symbol VARCHAR(20) NOT NULL,
+                        broker VARCHAR(50) NOT NULL,
+                        side VARCHAR(10) NOT NULL CHECK (side IN ('long', 'short')),
+                        entry_price NUMERIC(20, 8) NOT NULL,
+                        qty NUMERIC(20, 8) NOT NULL,
+                        entry_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        exit_price NUMERIC(20, 8),
+                        exit_time TIMESTAMP WITH TIME ZONE,
+                        exit_reason VARCHAR(100),
+                        realized_pnl NUMERIC(20, 2),
+                        commission NUMERIC(20, 8) DEFAULT 0,
+                        status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+                        strategy VARCHAR(100),
+                        notes TEXT
+                    );
+                """)
+
+                # Create unique partial index for open positions
+                cur.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_open_position
+                    ON positions(symbol, broker)
+                    WHERE status = 'open';
+                """)
+
+                # Create trades table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS trades (
+                        id SERIAL PRIMARY KEY,
+                        trade_id VARCHAR(100) UNIQUE NOT NULL,
+                        order_id VARCHAR(100) NOT NULL,
+                        symbol VARCHAR(20) NOT NULL,
+                        broker VARCHAR(50) NOT NULL,
+                        side VARCHAR(10) NOT NULL CHECK (side IN ('buy', 'sell')),
+                        price NUMERIC(20, 8) NOT NULL,
+                        qty NUMERIC(20, 8) NOT NULL,
+                        commission NUMERIC(20, 8) DEFAULT 0,
+                        executed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        position_id INTEGER REFERENCES positions(id),
+                        strategy VARCHAR(100)
+                    );
+                """)
+
+                # Create risk_events table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS risk_events (
+                        id SERIAL PRIMARY KEY,
+                        event_type risk_event_type NOT NULL,
+                        reason TEXT NOT NULL,
+                        metric_name VARCHAR(100),
+                        metric_value NUMERIC(20, 2),
+                        limit_value NUMERIC(20, 2),
+                        symbol VARCHAR(20),
+                        broker VARCHAR(50),
+                        occurred_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                """)
+
+                # Create performance indexes
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_positions_symbol_broker
+                    ON positions(symbol, broker);
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_positions_status
+                    ON positions(status);
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_trades_symbol
+                    ON trades(symbol);
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_trades_executed_at
+                    ON trades(executed_at);
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_risk_events_occurred_at
+                    ON risk_events(occurred_at);
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_risk_events_type
+                    ON risk_events(event_type);
+                """)
+
+                logger.info("Database schema initialized successfully")
 
     def _mask_url(self, url: str) -> str:
         """Mask password in database URL for logging."""
@@ -428,19 +552,27 @@ class PostgresDatabase:
         Get P&L for the last N days.
 
         Args:
-            days: Number of days to look back
+            days: Number of days to look back (must be positive integer)
 
         Returns:
             Total P&L as Decimal
+
+        Raises:
+            ValueError: If days is not a positive integer
         """
+        # Validate input to prevent SQL injection
+        if not isinstance(days, int) or days < 1:
+            raise ValueError(f"days must be a positive integer, got: {days}")
+
         with self._get_connection() as conn:
             with conn.cursor() as cur:
+                # Use multiplication to safely interpolate days into INTERVAL
                 cur.execute(
                     """
                     SELECT COALESCE(SUM(realized_pnl), 0) as total_pnl
                     FROM positions
                     WHERE status = 'closed'
-                      AND exit_time >= NOW() - INTERVAL '%s days'
+                      AND exit_time >= NOW() - INTERVAL '1 day' * %s
                     """,
                     (days,)
                 )

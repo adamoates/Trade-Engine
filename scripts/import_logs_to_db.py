@@ -24,7 +24,7 @@ import sys
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from loguru import logger
 
@@ -32,6 +32,18 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from trade_engine.db.postgres_adapter import PostgresDatabase
+
+
+# Risk event type mapping: Log format → Database ENUM value
+RISK_EVENT_TYPE_MAP = {
+    'risk_block': 'position_limit',
+    'daily_loss': 'daily_loss_limit',
+    'max_drawdown': 'max_drawdown',
+    'position_size': 'position_limit',
+    'position_limit': 'position_limit',
+    'kill_switch_triggered': 'kill_switch',
+    'order_rejected': 'order_rejected',
+}
 
 
 class LogImporter:
@@ -89,7 +101,19 @@ class LogImporter:
         logger.info(f"Imported {count} audit events from {file_path.name}")
         return count
 
-    def _process_audit_event(self, event: Dict):
+    def _map_risk_event_type(self, event_type: str) -> str:
+        """
+        Map log event type to database ENUM value.
+
+        Args:
+            event_type: Event type from log file
+
+        Returns:
+            Mapped risk_event_type ENUM value (defaults to 'position_limit')
+        """
+        return RISK_EVENT_TYPE_MAP.get(event_type, 'position_limit')
+
+    def _process_audit_event(self, event: Dict) -> None:
         """
         Process a single audit event.
 
@@ -97,6 +121,9 @@ class LogImporter:
         - signal_generated: Trading signal created by strategy
         - risk_block: Signal blocked by risk management
         - bar_received: New price bar received
+
+        Args:
+            event: Parsed JSON event dictionary
         """
         event_type = event.get("event")
         timestamp = self._parse_timestamp(event.get("ts"))
@@ -111,9 +138,8 @@ class LogImporter:
             signal = event.get("signal", {})
             reason = event.get("reason", "Unknown")
 
-            # Map to valid risk_event_type enum value
-            # Valid types: kill_switch, daily_loss_limit, max_drawdown, position_limit, order_rejected
-            event_type_mapped = "position_limit"  # Default for signal blocks
+            # Map to valid risk_event_type enum value using centralized mapping
+            event_type_mapped = self._map_risk_event_type(event_type)
 
             self.db.log_risk_event(
                 event_type=event_type_mapped,
@@ -161,7 +187,7 @@ class LogImporter:
         logger.info(f"Imported {count} trade events from {file_path.name}")
         return count
 
-    def _process_trade_event(self, log_entry: Dict):
+    def _process_trade_event(self, log_entry: Dict) -> None:
         """
         Process a single trade log event.
 
@@ -172,6 +198,9 @@ class LogImporter:
         - position_closed: Position closed with P&L
         - risk_limit_breached: Risk limit warning
         - kill_switch_triggered: Emergency shutdown
+
+        Args:
+            log_entry: Parsed JSON log entry dictionary
         """
         record = log_entry.get("record", {})
         extra = record.get("extra", {})
@@ -196,18 +225,9 @@ class LogImporter:
             self.stats["position_events"] += 1
 
         elif event_type == "risk_limit_breached":
-            # Log risk event
-            # Map limit_type to valid enum value
+            # Log risk event with centralized event type mapping
             limit_type = extra.get('limit_type', 'position_limit')
-
-            # Map common limit types to database enum values
-            limit_type_map = {
-                'daily_loss': 'daily_loss_limit',
-                'max_drawdown': 'max_drawdown',
-                'position_size': 'position_limit',
-                'position_limit': 'position_limit',
-            }
-            event_type_mapped = limit_type_map.get(limit_type, 'position_limit')
+            event_type_mapped = self._map_risk_event_type(limit_type)
 
             self.db.log_risk_event(
                 event_type=event_type_mapped,
@@ -219,10 +239,11 @@ class LogImporter:
             self.stats["risk_events"] += 1
 
         elif event_type == "kill_switch_triggered":
-            # Log critical risk event
-            # Valid enum value is "kill_switch" not "kill_switch_triggered"
+            # Log critical risk event using centralized mapping
+            event_type_mapped = self._map_risk_event_type(event_type)
+
             self.db.log_risk_event(
-                event_type="kill_switch",
+                event_type=event_type_mapped,
                 reason=extra.get('reason', 'Unknown'),
                 metric_value=self._safe_decimal(extra.get('metric_value')),
                 limit_value=self._safe_decimal(extra.get('limit_value')),
