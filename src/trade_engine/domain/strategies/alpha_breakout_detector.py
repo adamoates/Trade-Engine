@@ -141,12 +141,19 @@ class BreakoutSetupDetector(Strategy):
         self.config = config or BreakoutConfig()
 
         # Validate configuration
-        if self.config.sr_lookback_bars < 5:
+        # S/R detection requires minimum 5 bars: 2 on each side + 1 center
+        # (due to sr_detection_window=2 in loop range(2, len-2))
+        min_sr_bars = self.config.sr_detection_window * 2 + 1
+        if self.config.sr_lookback_bars < min_sr_bars:
             logger.warning(
-                f"sr_lookback_bars={self.config.sr_lookback_bars} too small for S/R detection, "
-                f"using minimum of 5"
+                "sr_lookback_bars_too_small",
+                symbol=self.symbol,
+                configured_value=self.config.sr_lookback_bars,
+                minimum_required=min_sr_bars,
+                detection_window=self.config.sr_detection_window,
+                reason="S/R detection requires window bars on each side plus center"
             )
-            self.config.sr_lookback_bars = 5
+            self.config.sr_lookback_bars = min_sr_bars
 
         # Validate confidence weights sum to 1.0
         weight_sum = (
@@ -158,8 +165,16 @@ class BreakoutSetupDetector(Strategy):
         )
         if weight_sum != Decimal("1.0"):
             logger.warning(
-                f"Confidence weights sum to {weight_sum}, expected 1.0. "
-                f"Confidence scores may be scaled incorrectly."
+                "confidence_weights_misconfigured",
+                symbol=self.symbol,
+                weight_sum=float(weight_sum),
+                expected=1.0,
+                breakout=float(self.config.weight_breakout),
+                momentum=float(self.config.weight_momentum),
+                volatility=float(self.config.weight_volatility),
+                derivatives=float(self.config.weight_derivatives),
+                risk_filter=float(self.config.weight_risk_filter),
+                impact="Confidence scores may be scaled incorrectly"
             )
 
         # Price history for indicators

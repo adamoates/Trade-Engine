@@ -844,3 +844,57 @@ class TestCodeReviewFixes:
         # Test 4: Price exactly at highest level - should return that level
         result = strategy._get_nearest_resistance(Decimal("52000"))
         assert result == Decimal("52000"), "Should return level when price matches"
+
+    def test_sr_lookback_bars_minimum_validation(self):
+        """
+        Test that sr_lookback_bars is validated against minimum required.
+
+        S/R detection uses range(window, len - window) which requires
+        window * 2 + 1 minimum bars (e.g., 2*2+1=5 for default window=2).
+        """
+        # Test with value below minimum (should be auto-corrected)
+        config = BreakoutConfig(sr_lookback_bars=3)  # Too small
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT", config=config)
+
+        # Should be corrected to minimum (sr_detection_window * 2 + 1 = 5)
+        assert strategy.config.sr_lookback_bars == 5, (
+            "sr_lookback_bars should be auto-corrected to minimum of 5 "
+            "when configured below threshold"
+        )
+
+        # Test with valid minimum value
+        config2 = BreakoutConfig(sr_lookback_bars=5)
+        strategy2 = BreakoutSetupDetector(symbol="ETHUSDT", config=config2)
+        assert strategy2.config.sr_lookback_bars == 5, "Valid minimum should be unchanged"
+
+        # Test with value above minimum
+        config3 = BreakoutConfig(sr_lookback_bars=50)
+        strategy3 = BreakoutSetupDetector(symbol="SOLUSD", config=config3)
+        assert strategy3.config.sr_lookback_bars == 50, "Valid large value should be unchanged"
+
+    def test_sr_detection_with_edge_case_bar_count(self):
+        """
+        Test S/R detection works correctly with minimum bar count.
+
+        Ensures the loop range(window, len - window) executes at least once
+        when exactly at minimum bars.
+        """
+        config = BreakoutConfig(sr_lookback_bars=5)  # Minimum
+        strategy = BreakoutSetupDetector(symbol="BTCUSDT", config=config)
+
+        # Add exactly 5 bars
+        for i in range(5):
+            bar = Bar(
+                timestamp=1000 + i,
+                open=Decimal("50000"),
+                high=Decimal("51000") if i == 2 else Decimal("50500"),  # Peak at index 2
+                low=Decimal("49000") if i == 2 else Decimal("49500"),   # Trough at index 2
+                close=Decimal("50000"),
+                volume=Decimal("100")
+            )
+            strategy.on_bar(bar)
+
+        # After enough bars, S/R detection should execute
+        # (may not find levels with only 5 bars, but should not crash)
+        assert isinstance(strategy.resistance_levels, list), "Should have resistance list"
+        assert isinstance(strategy.support_levels, list), "Should have support list"
